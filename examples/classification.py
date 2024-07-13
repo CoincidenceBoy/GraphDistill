@@ -20,12 +20,26 @@ def main(args):
     src_ckpt_file_path = student_model_config.get('src_ckpt', None)
     dst_ckpt_file_path = student_model_config['dst_ckpt']
 
+    dataset_config = config['datasets']
+
+    if not args.test_only:
+        train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path,
+              device, config, args)
+
 def load_model(model_config, device):
     model = get_model(model_config['key'], **model_config['kwargs'])
 
-    src_ckpt_file_path = model_config.get('src_ckpt', None)
+    # src_ckpt_file_path = model_config.get('src_ckpt', None)
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)
     return model.to(device)
+
+def train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path,
+          device, config, args):
+    pass
+
+def evaluate(model, data_loader, device):
+    pass
+
 
 
 if __name__ == '__main__':
@@ -34,6 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--run_log', help='log file path')
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('--epoch', default=0, type=int, metavar='N', help='num of epoch')
+    parser.add_argument('-test_only', action='store_true', help='only test the models')
 
     args = parser.parse_args()
     main(args)

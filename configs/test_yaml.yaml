@@ -19,3 +19,19 @@ models:
       out_channels: 7
     src_ckpt:
     dst_ckpt: !join ['./resource/ckpt/', *dataset_name, 'student_model.pt']
+
+train:
+  teacher:
+    requires_grad: False
+  student:
+    requires_grad: True
+  optimizer:
+    key: 'SGD'
+    kwargs:
+      lr: 0.1
+      momentum: 0.9
+      weight_decay: 0.0001
+  criterion:
+    key: 'WeightedSumLoss'
+
+test:
