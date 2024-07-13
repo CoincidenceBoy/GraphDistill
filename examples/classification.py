@@ -3,10 +3,8 @@ import os
 
 import torch
 
-from common import yaml_util
-from modules.registry import get_model
-# 确保导入 gcn 模块以进行注册
-import modules.gcn
+from distill.common import yaml_util
+from distill.modules.registry import get_model
 
 
 def main(args):
@@ -33,8 +31,7 @@ def load_model(model_config, device):
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)
     return model.to(device)
 
-def train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path,
-          device, config, args):
+def train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
     pass
 
 def evaluate(model, data_loader, device):
