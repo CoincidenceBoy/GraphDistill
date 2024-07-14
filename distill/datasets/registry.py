@@ -1,4 +1,3 @@
-from types import BuiltinFunctionType, BuiltinMethodType, FunctionType
 import importlib
 import sys
 from ..common import misc_util

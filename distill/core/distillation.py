@@ -1,4 +1,4 @@
-from torchdistill.common.constant import def_logger
+from distill.common.constant import def_logger
 
 from distill.common.main_util import load_ckpt
 from distill.core.interfaces.registry import get_forward_proc_func
@@ -15,7 +15,6 @@ class DistillationBox(object):
         self.org_student_model = student_model
         self.dataset_dict = dataset_dict
         self.device = device
-        # Local attributes (can be updated at each stage)
         # Local attributes (can be updated at each stage)
         self.teacher_model = None
         self.student_model = None
