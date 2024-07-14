@@ -10,11 +10,11 @@ ADAPTATION_MODULE_DICT = dict()
 AUXILIARY_MODEL_WRAPPER_DICT = dict()
 
 # 动态导入 gammagl.modules 包
-gammagl_datasets_module = importlib.import_module('gammagl.modules')
+gammagl_datasets_module = importlib.import_module('gammagl.models')
 
 # 确保 gammagl.datasets 模块现在在 sys.modules 中
-assert 'gammagl.modules' in sys.modules
-MODEL_DICT.update(misc_util.get_classes_as_dict('gammagl.modules'))
+assert 'gammagl.models' in sys.modules
+MODEL_DICT.update(misc_util.get_classes_as_dict('gammagl.models'))
 
 def get_model(key, *args, **kwargs):
     logger.info(MODEL_DICT)
