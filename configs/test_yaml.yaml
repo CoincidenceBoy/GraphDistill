@@ -1,7 +1,9 @@
-datasets:
-  cora:
-    name: &dataset_name 'cora'
-    root: &root_dir !join ['./resource/dataset/', *dataset_name]
+dataset:
+  key: 'Planetoid'
+  init:
+    kwargs:
+      name: &dataset_name 'cora'
+      root: &root_dir !join ['./resource/dataset/', *dataset_name]
 
 models:
   teacher_model:
