@@ -7,7 +7,7 @@ from distill.common import yaml_util
 from distill.misc.log import set_basic_log_config
 from distill.modules.registry import get_model
 from distill.core.distillation import DistillationBox
-from torchdistill.common.constant import def_logger
+from distill.common.constant import def_logger
 from distill.datasets.registry import get_dataset
 
 logger = def_logger.getChild(__name__)

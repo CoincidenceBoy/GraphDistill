@@ -2,6 +2,9 @@ from types import BuiltinFunctionType, BuiltinMethodType, FunctionType
 import importlib
 import sys
 from ..common import misc_util
+from distill.common.constant import def_logger
+
+logger = def_logger.getChild(__name__)
 
 DATASET_DICT = dict()
 COLLATE_FUNC_DICT = dict()
@@ -21,9 +24,9 @@ DATASET_DICT.update(misc_util.get_classes_as_dict('gammagl.datasets'))
 
 
 def get_dataset(key, *args, **kwargs):
+    logger.info(DATASET_DICT)
     if key in DATASET_DICT:
         return DATASET_DICT[key](*args, **kwargs)
-    # print(DATASET_DICT)
     raise ValueError('dataset_name `{}` is not expected'.format(key))
 
 
