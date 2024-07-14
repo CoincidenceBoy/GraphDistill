@@ -36,5 +36,18 @@ train:
       weight_decay: 0.0001
   criterion:
     key: 'WeightedSumLoss'
-
+    kwargs:
+      sub_terms:
+        kd:
+          criterion:
+            key: 'KDLoss'
+            kwargs:
+              student_module_path: '.'
+              student_module_io: 'output'
+              teacher_module_path: '.'
+              teacher_module_io: 'output'
+              temperature: 4.0
+              alpha: 0.9
+              reduction: 'batchmean'
+          weight: 1.0
 test:
