@@ -20,7 +20,7 @@ def main(args):
     device = torch.device(args.device)
     dataset_dict = config['dataset']
     dataset = get_dataset(dataset_dict['key'], **dataset_dict['init']['kwargs'])
-    print(dataset)
+    logger.info(dataset)
     teacher_model_config = config['models']['teacher_model']
     student_model_config = config['models']['student_model']
     teacher_model = load_model(teacher_model_config, device)
@@ -37,7 +37,7 @@ def main(args):
 
 def load_model(model_config, device):
     model = get_model(model_config['key'], **model_config['kwargs'])
-    print(model)
+    logger.info(model)
 
     # src_ckpt_file_path = model_config.get('src_ckpt', None)
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)

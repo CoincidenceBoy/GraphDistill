@@ -7,15 +7,16 @@ dataset:
 
 models:
   teacher_model:
-    key: 'gcn'
+    key: 'GCNModel'
     kwargs:
-      in_channels: 1433
-      out_channels: 7
+      feature_dim: 1433
+      hidden_dim: 256
+      num_class: 7
     src_ckpt:
     dst_ckpt: !join ['./resource/ckpt/', *dataset_name, 'teacher_model.pt']
 
   student_model:
-    key: 'gcn'
+    key: 'test_gcn'
     kwargs:
       in_channels: 1433
       out_channels: 7

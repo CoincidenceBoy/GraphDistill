@@ -6,7 +6,7 @@ from torch_geometric.nn import GCNConv
 from .registry import register_model
 
 
-@register_model(key='gcn')
+@register_model(key='test_gcn')
 class GCN(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(GCN, self).__init__()
