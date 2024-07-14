@@ -1,4 +1,4 @@
-
-/distill/__pycache__
-/distill/common/__pycache__
-/distill/modules/__pycache__
+.idea/
+.ipynb_checkpoints/
+__pycache__/
+.editorconfig

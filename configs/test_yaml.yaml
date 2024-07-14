@@ -21,9 +21,12 @@ models:
     dst_ckpt: !join ['./resource/ckpt/', *dataset_name, 'student_model.pt']
 
 train:
+  num_epochs: 182
   teacher:
+    forward_proc: 'forward_batch_only'
     requires_grad: False
   student:
+    forward_proc: 'forward_batch_only'
     requires_grad: True
   optimizer:
     key: 'SGD'

@@ -4,11 +4,18 @@ import os
 import torch
 
 from distill.common import yaml_util
+from distill.misc.log import set_basic_log_config
 from distill.modules.registry import get_model
+from distill.core.distillation import DistillationBox
+from torchdistill.common.constant import def_logger
 
+logger = def_logger.getChild(__name__)
 
 def main(args):
-    config = yaml_util.load_yaml_file(os.path.expanduser(args.config))
+    set_basic_log_config()
+    logger.info(args)
+    config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)))
+    logger.info(config)
     device = torch.device(args.device)
     teacher_model_config = config['models']['teacher_model']
     student_model_config = config['models']['student_model']
@@ -31,8 +38,11 @@ def load_model(model_config, device):
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)
     return model.to(device)
 
-def train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
-    pass
+def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
+    logger.info('Start training')
+    train_config = config['train']
+    training_box = DistillationBox(teacher_model, student_model, dataset_dict, train_config, device)
+
 
 def evaluate(model, data_loader, device):
     pass
