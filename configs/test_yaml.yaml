@@ -25,6 +25,18 @@ models:
 
 train:
   num_epochs: 182
+  # sampler: 'NeighborSampler'
+  #     edge_index: *dataset.edge_index
+  #     node_idx: [0, 8, 45, 33]
+  #     sample_list: [2, 8]
+  #     batch_size: 2048
+  #     shuffle: True
+  #     num_workers: 0
+  train_data_loader:
+    kwargs:
+      dataset: *dataset
+      batch_size: 128
+      shuffle: False
   teacher:
     forward_proc: 'forward_batch_only'
     requires_grad: False
