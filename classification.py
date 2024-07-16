@@ -2,6 +2,7 @@ import argparse
 import os
 
 import torch
+import tensorlayerx as tlx
 
 from distill.common import yaml_util
 from distill.misc.log import set_basic_log_config
@@ -9,6 +10,7 @@ from distill.modules.registry import get_model
 from distill.core.distillation import DistillationBox
 from distill.common.constant import def_logger
 from distill.datasets.registry import get_dataset
+from distill.optim.registry import get_optimizer, get_scheduler
 
 logger = def_logger.getChild(__name__)
 
@@ -21,10 +23,20 @@ def main(args):
     dataset_dict = config['dataset']
     dataset = get_dataset(dataset_dict['key'], **dataset_dict['init']['kwargs'])
     logger.info(dataset)
+
     teacher_model_config = config['models']['teacher_model']
     student_model_config = config['models']['student_model']
     teacher_model = load_model(teacher_model_config, device)
     student_model = load_model(student_model_config, device)
+
+    optimizer_dict = config['train']['optimizer']
+    optimizer = get_optimizer(teacher_model, optimizer_dict['key'], **optimizer_dict['kwargs'])
+    logger.info(optimizer)
+    scheduler_dict = config['train']['scheduler']
+    scheduler = get_scheduler(optimizer, scheduler_dict['key'], **scheduler_dict['kwargs'])
+
+    logger.info(optimizer)
+    logger.info(scheduler)
 
     src_ckpt_file_path = student_model_config.get('src_ckpt', None)
     dst_ckpt_file_path = student_model_config['dst_ckpt']
