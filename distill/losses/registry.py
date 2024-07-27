@@ -9,6 +9,20 @@ LOSS_WRAPPER_DICT = dict()
 FUNC2EXTRACT_MODEL_OUTPUT_DICT = dict()
 
 
+def register_low_level_loss(arg=None, **kwargs):
+    def _register_low_level_loss(cls_or_func):
+        key = kwargs.get('key')
+        if key is None:
+            key = cls_or_func.__name__
+
+        LOW_LEVEL_LOSS_DICT[key] = cls_or_func
+        return cls_or_func
+
+    if callable(arg):
+        return _register_low_level_loss(arg)
+    return _register_low_level_loss
+
+
 def register_mid_level_loss(arg=None, **kwargs):
     def _register_mid_level_loss(cls_or_func):
         key = kwargs.get('key')
@@ -37,15 +51,36 @@ def register_high_level_loss(arg=None, **kwargs):
     return _register_high_level_loss
 
 
-def get_high_level_loss(criterion_config):
-    """
-    Gets a registered high-level loss module.
+def register_loss_wrapper(arg=None, **kwargs):
+    def _register_loss_wrapper(cls_or_func):
+        key = kwargs.get('key')
+        if key is None:
+            key = cls_or_func.__name__
 
-    :param criterion_config: high-level loss configuration to identify and instantiate the registered high-level loss class.
-    :type criterion_config: dict
-    :return: registered high-level loss class or function to instantiate it.
-    :rtype: nn.Module
-    """
+        LOSS_WRAPPER_DICT[key] = cls_or_func
+        return cls_or_func
+
+    if callable(arg):
+        return _register_loss_wrapper(arg)
+    return _register_loss_wrapper
+
+
+def register_func2extract_model_output(arg=None, **kwargs):
+    def _register_func2extract_model_output(func):
+        key = kwargs.get('key')
+        if key is None:
+            key = func.__name__
+
+        FUNC2EXTRACT_MODEL_OUTPUT_DICT[key] = func
+        return func
+
+    if callable(arg):
+        return _register_func2extract_model_output(arg)
+    return _register_func2extract_model_output
+
+
+
+def get_high_level_loss(criterion_config):
     criterion_key = criterion_config['key']
     args = criterion_config.get('args', None)
     kwargs = criterion_config.get('kwargs', None)
@@ -68,14 +103,6 @@ def get_mid_level_loss(mid_level_criterion_config, criterion_wrapper_config=None
 
 
 def get_low_level_loss(key, **kwargs):
-    """
-    Gets a registered (low-level) loss module.
-
-    :param key: unique key to identify the registered loss class/function.
-    :type key: str
-    :return: registered loss class or function to instantiate it.
-    :rtype: nn.Module
-    """
     if key in LOSS_DICT:
         return LOSS_DICT[key](**kwargs)
     elif key in LOW_LEVEL_LOSS_DICT:
@@ -84,16 +111,6 @@ def get_low_level_loss(key, **kwargs):
 
 
 def get_loss_wrapper(mid_level_loss, criterion_wrapper_config):
-    """
-    Gets a registered loss wrapper module.
-
-    :param mid_level_loss: middle-level loss module.
-    :type mid_level_loss: nn.Module
-    :param criterion_wrapper_config: loss wrapper configuration to identify and instantiate the registered loss wrapper class.
-    :type criterion_wrapper_config: dict
-    :return: registered loss wrapper class or function to instantiate it.
-    :rtype: nn.Module
-    """
     wrapper_key = criterion_wrapper_config['key']
     args = criterion_wrapper_config.get('args', None)
     kwargs = criterion_wrapper_config.get('kwargs', None)
