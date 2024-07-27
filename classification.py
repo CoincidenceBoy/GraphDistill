@@ -5,7 +5,7 @@ import torch
 import tensorlayerx as tlx
 
 from distill.common import yaml_util
-from distill.misc.log import set_basic_log_config
+from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue
 from distill.modules.registry import get_model
 from distill.core.distillation import DistillationBox
 from distill.common.constant import def_logger
@@ -13,8 +13,26 @@ from distill.datasets.registry import get_dataset
 from distill.optim.registry import get_optimizer, get_scheduler
 from distill.core.training import get_training_box
 from distill.core.distillation import get_distillation_box
+import time
 
 logger = def_logger.getChild(__name__)
+
+
+def train_one_epoch(training_box, device, epoch, log_freq):
+    metric_logger = MetricLogger(delimiter="  ")
+    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value}'))
+    header = 'Epoch: [{}]'.format(epoch)
+
+    samples = training_box.dataset.samples
+    targets = training_box.dataset.targets
+    supp_dicts = training_box.dataset.supp_dicts
+
+    start_time = time.time()
+
+    for i, (data, target) in enumerate(zip(samples, targets, supp_dicts)):
+        
+        loss = training_box.forward_process
+
 
 
 def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path,
@@ -28,11 +46,11 @@ def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ck
                                   device, device_ids, distributed, lr_factor)
     best_val_top1_accuracy = 0.0
     optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
-    if file_util.check_if_exists(src_ckpt_file_path):
-        best_val_top1_accuracy, _ = load_ckpt(src_ckpt_file_path, optimizer=optimizer, lr_scheduler=lr_scheduler)
+    # if file_util.check_if_exists(src_ckpt_file_path):
+    #     best_val_top1_accuracy, _ = load_ckpt(src_ckpt_file_path, optimizer=optimizer, lr_scheduler=lr_scheduler)
 
     log_freq = train_config['log_freq']
-    student_model_without_ddp = student_model.module if module_util.check_if_wrapped(student_model) else student_model
+    # student_model_without_ddp = student_model.module if module_util.check_if_wrapped(student_model) else student_model
     start_time = time.time()
     for epoch in range(args.start_epoch, training_box.num_epochs):
         training_box.pre_epoch_process(epoch=epoch)
