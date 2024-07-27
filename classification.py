@@ -1,6 +1,9 @@
 import argparse
 import os
-
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['TL_BACKEND'] = 'torch'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+# 0:Output all; 1:Filter out INFO; 2:Filter out INFO and WARNING; 3:Filter out INFO, WARNING, and ERROR
 import torch
 import tensorlayerx as tlx
 
@@ -29,49 +32,46 @@ def train_one_epoch(training_box, device, epoch, log_freq):
 
     start_time = time.time()
 
-    for i, (data, target) in enumerate(zip(samples, targets, supp_dicts)):
+    # for i, (data, target) in enumerate(zip(samples, targets, supp_dicts)):
         
-        loss = training_box.forward_process
+        # loss = training_box.forward_process
 
 
 
-def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path,
-          device, device_ids, distributed, world_size, config, args):
+def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, world_size, config, args):
     logger.info('Start training')
     train_config = config['train']
-    lr_factor = world_size if distributed and args.adjust_lr else 1
-    training_box = get_training_box(student_model, dataset_dict, train_config,
-                                    device, device_ids, distributed, lr_factor) if teacher_model is None \
-        else get_distillation_box(teacher_model, student_model, dataset_dict, train_config,
-                                  device, device_ids, distributed, lr_factor)
+    lr_factor = 1
+    training_box = get_training_box(student_model, dataset_dict, train_config, lr_factor) if teacher_model is None \
+        else get_distillation_box(teacher_model, student_model, dataset_dict, train_config, lr_factor)
     best_val_top1_accuracy = 0.0
-    optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
-    # if file_util.check_if_exists(src_ckpt_file_path):
-    #     best_val_top1_accuracy, _ = load_ckpt(src_ckpt_file_path, optimizer=optimizer, lr_scheduler=lr_scheduler)
+    # optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
+    # # if file_util.check_if_exists(src_ckpt_file_path):
+    # #     best_val_top1_accuracy, _ = load_ckpt(src_ckpt_file_path, optimizer=optimizer, lr_scheduler=lr_scheduler)
 
-    log_freq = train_config['log_freq']
-    # student_model_without_ddp = student_model.module if module_util.check_if_wrapped(student_model) else student_model
-    start_time = time.time()
-    for epoch in range(args.start_epoch, training_box.num_epochs):
-        training_box.pre_epoch_process(epoch=epoch)
-        train_one_epoch(training_box, device, epoch, log_freq)
-        val_top1_accuracy = evaluate(student_model, training_box.val_data_loader, device, device_ids, distributed,
-                                     log_freq=log_freq, header='Validation:')
-        if val_top1_accuracy > best_val_top1_accuracy and is_main_process():
-            logger.info('Best top-1 accuracy: {:.4f} -> {:.4f}'.format(best_val_top1_accuracy, val_top1_accuracy))
-            logger.info('Updating ckpt at {}'.format(dst_ckpt_file_path))
-            best_val_top1_accuracy = val_top1_accuracy
-            save_ckpt(student_model_without_ddp, optimizer, lr_scheduler,
-                      best_val_top1_accuracy, args, dst_ckpt_file_path)
-        training_box.post_epoch_process()
+    # log_freq = train_config['log_freq']
+    # # student_model_without_ddp = student_model.module if module_util.check_if_wrapped(student_model) else student_model
+    # start_time = time.time()
+    # for epoch in range(args.start_epoch, training_box.num_epochs):
+    #     training_box.pre_epoch_process(epoch=epoch)
+    #     train_one_epoch(training_box, device, epoch, log_freq)
+    #     val_top1_accuracy = evaluate(student_model, training_box.val_data_loader, device, device_ids, distributed,
+    #                                  log_freq=log_freq, header='Validation:')
+    #     if val_top1_accuracy > best_val_top1_accuracy and is_main_process():
+    #         logger.info('Best top-1 accuracy: {:.4f} -> {:.4f}'.format(best_val_top1_accuracy, val_top1_accuracy))
+    #         logger.info('Updating ckpt at {}'.format(dst_ckpt_file_path))
+    #         best_val_top1_accuracy = val_top1_accuracy
+    #         save_ckpt(student_model_without_ddp, optimizer, lr_scheduler,
+    #                   best_val_top1_accuracy, args, dst_ckpt_file_path)
+    #     training_box.post_epoch_process()
 
-    if distributed:
-        dist.barrier()
+    # if distributed:
+    #     dist.barrier()
 
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logger.info('Training time {}'.format(total_time_str))
-    training_box.clean_modules()
+    # total_time = time.time() - start_time
+    # total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    # logger.info('Training time {}'.format(total_time_str))
+    # training_box.clean_modules()
 
 
 
@@ -105,9 +105,9 @@ def main(args):
 
     dataset_config = config['dataset']
 
+    world_size = 1
     if not args.test_only:
-        train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path,
-              device, config, args)
+        train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path, world_size, config, args)
 
 def load_model(model_config, device):
     model = get_model(model_config['key'], **model_config['kwargs'])
@@ -117,14 +117,14 @@ def load_model(model_config, device):
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)
     return model.to(device)
 
-def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
-    logger.info('Start training')
-    train_config = config['train']
-    training_box = DistillationBox(teacher_model, student_model, dataset_dict, train_config, device)
+# def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
+#     logger.info('Start training')
+#     train_config = config['train']
+#     training_box = DistillationBox(teacher_model, student_model, dataset_dict, train_config, device)
 
 
-def evaluate(model, data_loader, device):
-    pass
+# def evaluate(model, data_loader, device):
+#     pass
 
 
 

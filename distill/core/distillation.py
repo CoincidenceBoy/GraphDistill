@@ -9,8 +9,8 @@ from distill.losses.registry import get_high_level_loss
 logger = def_logger.getChild(__name__)
 
 class DistillationBox(object):
-    def __init__(self, teacher_model, student_model, dataset_dict, train_config, device):
-        super.__init__()
+    def __init__(self, teacher_model, student_model, dataset_dict, train_config, lr_factor):
+        super(DistillationBox, self).__init__()
         # Key attributes (should not be modified)
     #     self.org_teacher_model = teacher_model
     #     self.org_student_model = student_model
@@ -80,10 +80,8 @@ class DistillationBox(object):
         # self.extract_model_loss = get_func2extract_model_output(criterion_config.get('func2extract_model_loss', None))
 
 
-def get_distillation_box(teacher_model, student_model, dataset_dict,
-                         train_config, device, device_ids, distributed, lr_factor, accelerator=None):
+def get_distillation_box(teacher_model, student_model, dataset_dict, train_config, lr_factor, accelerator=None):
     # if 'stage1' in train_config:
     #     return MultiStagesDistillationBox(teacher_model, student_model, dataset_dict,
     #                                       train_config, device, device_ids, distributed, lr_factor, accelerator)
-    return DistillationBox(teacher_model, student_model, dataset_dict, train_config,
-                           device, device_ids, distributed, lr_factor, accelerator)
+    return DistillationBox(teacher_model, student_model, dataset_dict, train_config, lr_factor)

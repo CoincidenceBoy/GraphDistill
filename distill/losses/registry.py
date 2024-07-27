@@ -121,3 +121,12 @@ def get_loss_wrapper(mid_level_loss, criterion_wrapper_config):
     if wrapper_key in LOSS_WRAPPER_DICT:
         return LOSS_WRAPPER_DICT[wrapper_key](mid_level_loss, *args, **kwargs)
     raise ValueError('No loss wrapper `{}` registered'.format(wrapper_key))
+
+
+def get_func2extract_model_output(key):
+    if key is None:
+        key = 'extract_model_loss_dict'
+    if key in FUNC2EXTRACT_MODEL_OUTPUT_DICT:
+        return FUNC2EXTRACT_MODEL_OUTPUT_DICT[key]
+    raise ValueError('No function to extract original output `{}` registered'.format(key))
+

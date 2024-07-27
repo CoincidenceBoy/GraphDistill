@@ -3,7 +3,8 @@ import copy
 # import torch
 # from torch.utils.data import DataLoader, random_split
 # from torch.utils.data.distributed import DistributedSampler
-from tensorlayerx.utils.data import DataLoader
+
+from gammagl.loader import DataLoader
 
 from ..common.constant import def_logger
 # from ..datasets.registry import get_collate_func, get_batch_sampler, get_dataset_wrapper

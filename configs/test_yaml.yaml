@@ -34,7 +34,7 @@ train:
   #     num_workers: 0
   train_data_loader:
     kwargs:
-      dataset: *dataset
+      dataset: *dataset_name
       batch_size: 128
       shuffle: False
   teacher:
