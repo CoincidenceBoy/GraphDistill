@@ -23,7 +23,7 @@ class TrainingBox(object):
         criterion_config = train_config['criterion']
         self.criterion = get_high_level_loss(criterion_config)
         logger.info(self.criterion)
-        self.extract_model_loss = get_func2extract_model_output(criterion_config.get('func2extract_model_loss', None))
+        # self.extract_model_loss = get_func2extract_model_output(criterion_config.get('func2extract_model_loss', None))
 
     def setup_model(self, model_config):
         # TODO: 设计hook机制，从checkpoint加载模型
@@ -38,10 +38,10 @@ class TrainingBox(object):
         self.setup_loss(train_config)
 
 
-    def __init__(self, model, dataset_dict, train_config, device, lr_factor, accelerator=None):
+    def __init__(self, model, dataset_dict, train_config, lr_factor):
+        self.dataset_dict = dataset_dict
         self.model_forward_proc = None
-        self.setop(train_config)
-        super.__init__()
+        self.setup(train_config)
 
     def foward_process(self, sample_batch, targets=None, supp_dict=None, **kwargs):
         model_outputs = self.model_forward_proc(self.model, sample_batch, targets, supp_dict, **kwargs)
@@ -52,9 +52,8 @@ class TrainingBox(object):
 
 
 
-def get_training_box(model, dataset_dict, train_config, device, device_ids, distributed,
-                     lr_factor, accelerator=None):
+def get_training_box(model, dataset_dict, train_config, lr_factor):
     # if 'stage1' in train_config:
     #     return MultiStagesTrainingBox(model, dataset_dict,
     #                                   train_config, device, device_ids, distributed, lr_factor, accelerator)
-    return TrainingBox(model, dataset_dict, train_config, device, device_ids, distributed, lr_factor, accelerator)
+    return TrainingBox(model, dataset_dict, train_config, lr_factor)

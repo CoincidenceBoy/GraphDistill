@@ -42,8 +42,9 @@ def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ck
     logger.info('Start training')
     train_config = config['train']
     lr_factor = 1
-    training_box = get_training_box(student_model, dataset_dict, train_config, lr_factor) if teacher_model is None \
-        else get_distillation_box(teacher_model, student_model, dataset_dict, train_config, lr_factor)
+    # training_box = get_training_box(student_model, dataset_dict, train_config, lr_factor) if teacher_model is None \
+    #     else get_distillation_box(teacher_model, student_model, dataset_dict, train_config, lr_factor)
+    training_box = get_training_box(student_model, dataset_dict, train_config, lr_factor)
     best_val_top1_accuracy = 0.0
     # optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
     # # if file_util.check_if_exists(src_ckpt_file_path):

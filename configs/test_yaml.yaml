@@ -37,6 +37,8 @@ train:
       dataset: *dataset_name
       batch_size: 128
       shuffle: False
+  model:
+    forward_proc: 'forward_batch_only'
   teacher:
     forward_proc: 'forward_batch_only'
     requires_grad: False
