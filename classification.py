@@ -38,13 +38,12 @@ def train_one_epoch(training_box, device, epoch, log_freq):
 
 
 
-def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, world_size, config, args):
+def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, config, args):
     logger.info('Start training')
     train_config = config['train']
-    lr_factor = 1
     # training_box = get_training_box(student_model, dataset_dict, train_config, lr_factor) if teacher_model is None \
     #     else get_distillation_box(teacher_model, student_model, dataset_dict, train_config, lr_factor)
-    training_box = get_training_box(student_model, dataset_dict, train_config, lr_factor)
+    training_box = get_training_box(student_model, dataset_dict, train_config)
     best_val_top1_accuracy = 0.0
     # optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
     # # if file_util.check_if_exists(src_ckpt_file_path):
@@ -82,15 +81,15 @@ def main(args):
     logger.info(args)
     config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)))
     logger.info(config)
-    device = torch.device(args.device)
+    # device = torch.device(args.device)
     dataset_dict = config['dataset']
     dataset = get_dataset(dataset_dict['key'], **dataset_dict['init']['kwargs'])
     logger.info(dataset)
 
     teacher_model_config = config['models']['teacher_model']
     student_model_config = config['models']['student_model']
-    teacher_model = load_model(teacher_model_config, device)
-    student_model = load_model(student_model_config, device)
+    teacher_model = load_model(teacher_model_config)
+    student_model = load_model(student_model_config)
 
     optimizer_dict = config['train']['optimizer']
     optimizer = get_optimizer(teacher_model, optimizer_dict['key'], **optimizer_dict['kwargs'])
@@ -106,17 +105,16 @@ def main(args):
 
     dataset_config = config['dataset']
 
-    world_size = 1
     if not args.test_only:
-        train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path, world_size, config, args)
+        train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path, config, args)
 
-def load_model(model_config, device):
+def load_model(model_config):
     model = get_model(model_config['key'], **model_config['kwargs'])
     logger.info(model)
 
     # src_ckpt_file_path = model_config.get('src_ckpt', None)
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)
-    return model.to(device)
+    return model
 
 # def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
 #     logger.info('Start training')
