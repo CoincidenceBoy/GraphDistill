@@ -3,9 +3,12 @@ from ..datasets.utils import build_data_loaders
 from ..common.constant import def_logger
 from ..losses.registry import get_high_level_loss, get_func2extract_model_output
 from ..optim.registry import get_optimizer, get_scheduler
-from tensorlayerx import nn
+# from tensorlayerx import nn
+from torch import nn
 from ..common.module_util import check_if_wrapped
-from ..modules.registry import get_model
+from ..modules.utils import redesign_model
+from ..common.module_util import get_module
+# from .interfaces.post_epoch_proc import default_pre_epoch_process_without_teacher
 
 logger = def_logger.getChild(__name__)
 
@@ -31,16 +34,43 @@ class TrainingBox(object):
 
     def setup_model(self, model_config):
         # TODO: 设计hook机制，从checkpoint加载模型
-        # unwrapped_org_model = self.org_model.module if check_if_wrapped(self.org_model) else self.org_model
+        unwrapped_org_model = self.org_model.module if check_if_wrapped(self.org_model) else self.org_model
+        ref_model = unwrapped_org_model
+        # logger.info(unwrapped_org_model)
         if len(model_config) > 0 or (len(model_config) == 0 and self.model is None):
             logger.info('[student model]')
             model_type = 'original'
-            # self.model = redesign_model()
-            print("(((())))")
-            logger.info(model_config)
-            # self.model = get_model(model_config['key'], **model_config['kwargs'])
+            self.model = redesign_model(ref_model, model_config, 'student', model_type)
 
         self.model_forward_proc = get_forward_proc_func(model_config.get('forward_proc', None))
+
+    # def setup_pre_post_processes(self, train_config):
+    #     """
+    #     Sets up pre/post-epoch/forward processes for the current training stage.
+    #     This method will be internally called when instantiating this class and when calling
+    #     :meth:`MultiStagesTrainingBox.advance_to_next_stage`.
+
+    #     :param train_config: training configuration.
+    #     :type train_config: dict
+    #     """
+    #     pre_epoch_process = default_pre_epoch_process_without_teacher
+    #     if 'pre_epoch_process' in train_config:
+    #         pre_epoch_process = get_pre_epoch_proc_func(train_config['pre_epoch_process'])
+    #     setattr(TrainingBox, 'pre_epoch_process', pre_epoch_process)
+    #     pre_forward_process = default_pre_forward_process
+    #     if 'pre_forward_process' in train_config:
+    #         pre_forward_process = get_pre_forward_proc_func(train_config['pre_forward_process'])
+    #     setattr(TrainingBox, 'pre_forward_process', pre_forward_process)
+    #     post_forward_process = default_post_forward_process
+    #     if 'post_forward_process' in train_config:
+    #         post_forward_process = get_post_forward_proc_func(train_config['post_forward_process'])
+
+    #     setattr(TrainingBox, 'post_forward_process', post_forward_process)
+    #     post_epoch_process = default_post_epoch_process_without_teacher
+    #     if 'post_epoch_process' in train_config:
+    #         post_epoch_process = get_post_epoch_proc_func(train_config['post_epoch_process'])
+    #     setattr(TrainingBox, 'post_epoch_process', post_epoch_process)
+
 
     def setup(self, train_config):
         self.setup_data_loaders(train_config)
@@ -55,18 +85,57 @@ class TrainingBox(object):
         if len(optim_config) > 0:
             optim_kwargs = optim_config['kwargs']
 
-            # trainable_module_list = nn.ModuleList([self.model])
+            module_wise_configs = optim_config.get('module_wise_kwargs', list())
+            if len(module_wise_configs) > 0:
+                trainable_module_list = list()
+                for module_wise_config in module_wise_configs:
+                    module_wise_kwargs = dict()
+                    if isinstance(module_wise_config.get('kwargs', None), dict):
+                        module_wise_kwargs.update(module_wise_config['kwargs'])
+
+                    module = get_module(self.model, module_wise_config['module'])
+                    module_wise_kwargs['params'] = module.parameters() if isinstance(module, nn.Module) else [module]
+                    trainable_module_list.append(module_wise_kwargs)
+            else:
+                # TODO: 使用tlx提供的nn会报错，使用torch的就可以正常运行
+                # trainable_module_list = nn.ModuleList([self.model])
+                trainable_module_list = self.model.trainable_weights
                 
             filters_params = optim_config.get('filters_params', True)
-            # self.optimizer = get_optimizer(trainable_module_list, optim_config['key'], **optim_kwargs, filters_params=filters_params)
-            # self.optimizer.zero_grad()
+            self.optimizer = get_optimizer(trainable_module_list, optim_config['key'], **optim_kwargs, filters_params=filters_params)
+            self.optimizer.zero_grad()
+
+        scheduler_config = train_config.get('scheduler', None)
+        if scheduler_config is not None and len(scheduler_config) > 0:
+            self.lr_scheduler = get_scheduler(self.optimizer, scheduler_config['key'], **scheduler_config['kwargs'])
+            self.scheduling_step = scheduler_config.get('scheduling_step', 0)
+        elif optimizer_reset:
+            self.lr_scheduler = None
+            self.scheduling_step = None
+
+        # self.setup_pre
+
+            
 
 
     def __init__(self, model, dataset_dict, train_config):
+        # Key attributes (should not be modified)
+        self.org_model = model
         self.dataset_dict = dataset_dict
+        # Local attributes (can be updated at each stage)
         self.model = None
         self.model_forward_proc = None
+        self.target_model_pairs = list()
+        self.model_io_dict = dict()
+        self.train_data_loader, self.val_data_loader, self.optimizer, self.lr_scheduler = None, None, None, None
+        self.criterion, self.extract_model_loss = None, None
+        self.model_any_frozen = None
+        self.grad_accum_step = None
+        self.max_grad_norm = None
+        self.scheduling_step = 0
+        self.stage_grad_count = 0
         self.setup(train_config)
+        self.num_epochs = train_config['num_epochs']
 
     def foward_process(self, sample_batch, targets=None, supp_dict=None, **kwargs):
         model_outputs = self.model_forward_proc(self.model, sample_batch, targets, supp_dict, **kwargs)
