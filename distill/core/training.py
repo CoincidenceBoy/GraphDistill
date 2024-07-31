@@ -19,12 +19,12 @@ class TrainingBox(object):
         #     train_data_loader_config['requires_supp'] = True
 
         val_data_loader_config = train_config.get('val_data_loader', dict())
-        train_data_loader, val_data_loader =\
-            build_data_loaders(self.dataset_dict, [train_data_loader_config, val_data_loader_config])
-        if train_data_loader is not None:
-            self.train_data_loader = train_data_loader
-        if val_data_loader is not None:
-            self.val_data_loader = val_data_loader
+        test_data_loader_config = train_config.get('test_data_loader', dict())
+        data_loader_dict = build_data_loaders(self.dataset_dict, [train_data_loader_config, val_data_loader_config, test_data_loader_config])
+        if data_loader_dict['train'] is not None:
+            self.train_data_loader = data_loader_dict['train']
+        if data_loader_dict['val'] is not None:
+            self.val_data_loader = data_loader_dict['val']
 
     def setup_loss(self, train_config):
         criterion_config = train_config['criterion']

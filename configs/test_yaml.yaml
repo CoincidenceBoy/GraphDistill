@@ -25,6 +25,7 @@ models:
     dst_ckpt: !join ['./resource/ckpt/', *dataset_name, 'student_model.pt']
 
 train:
+  log_freq: 10
   num_epochs: 182
   # sampler: 'NeighborSampler'
   #     edge_index: *dataset.edge_index
@@ -34,8 +35,18 @@ train:
   #     shuffle: True
   #     num_workers: 0
   train_data_loader:
+    split: 'train'
     kwargs:
-      dataset: *dataset_name
+      batch_size: 128
+      shuffle: False
+  test_data_loader:
+    split: 'test'
+    kwargs:
+      batch_size: 128
+      shuffle: False
+  val_data_loader:
+    split: 'val'
+    kwargs:
       batch_size: 128
       shuffle: False
   model:
@@ -73,4 +84,3 @@ train:
               alpha: 0.9
               reduction: 'batchmean'
           weight: 1.0
-test:

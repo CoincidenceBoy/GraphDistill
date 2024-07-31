@@ -7,6 +7,8 @@ import copy
 from gammagl.loader import DataLoader
 
 from ..common.constant import def_logger
+from gammagl.utils import mask_to_index
+from distill.datasets.registry import get_dataset
 # from ..datasets.registry import get_collate_func, get_batch_sampler, get_dataset_wrapper
 # from ..datasets.wrapper import default_idx2subpath, BaseDatasetWrapper, CacheableDataset
 
@@ -22,11 +24,21 @@ def build_data_loader(dataset, data_loader_config):
     data_loader_kwargs = data_loader_config['kwargs']
     return DataLoader(dataset, collate_fn=collate_fn, **data_loader_kwargs)
 
-def build_data_loaders(dataset_dict, data_loader_configs, accelerator=None):
-    data_loader_list = list()
+def build_data_loaders(dataset, data_loader_configs, accelerator=None):
+    data_loader_dict = dict()
+
+    # graph = dataset[0]
+    graph = get_dataset(dataset['key'], **dataset['init']['kwargs'])[0]
+    train_idx = mask_to_index(graph.train_mask)
+    test_idx = mask_to_index(graph.test_mask)
+    val_idx = mask_to_index(graph.val_mask)
+
     for data_loader_config in data_loader_configs:
-        dataset_id = data_loader_config.get('dataset_id', None)
-        data_loader = None if dataset_id is None or dataset_id not in dataset_dict \
-            else build_data_loader(dataset_dict[dataset_id], data_loader_config)
-        data_loader_list.append(data_loader)
-    return data_loader_list
+        dataset_id = data_loader_config.get('split', None)
+        if dataset_id == 'train':
+            data_loader_dict['train'] = build_data_loader(train_idx, data_loader_config)
+        elif dataset_id == 'test':
+            data_loader_dict['test'] = build_data_loader(test_idx, data_loader_config)
+        elif dataset_id == 'val':
+            data_loader_dict['val'] = build_data_loader(val_idx, data_loader_config)
+    return data_loader_dict

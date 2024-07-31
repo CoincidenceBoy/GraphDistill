@@ -21,16 +21,14 @@ import time
 logger = def_logger.getChild(__name__)
 
 
-def train_one_epoch(training_box, device, epoch, log_freq):
+def train_one_epoch(training_box, epoch, log_freq):
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value}'))
     header = 'Epoch: [{}]'.format(epoch)
 
-    samples = training_box.dataset.samples
-    targets = training_box.dataset.targets
-    supp_dicts = training_box.dataset.supp_dicts
-
     start_time = time.time()
+
+    training_box.train_data_loader
 
     # for i, (data, target) in enumerate(zip(samples, targets, supp_dicts)):
         
@@ -45,16 +43,16 @@ def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ck
     #     else get_distillation_box(teacher_model, student_model, dataset_dict, train_config, lr_factor)
     training_box = get_training_box(student_model, dataset_dict, train_config)
     best_val_top1_accuracy = 0.0
-    # optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
+    optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
     # # if file_util.check_if_exists(src_ckpt_file_path):
     # #     best_val_top1_accuracy, _ = load_ckpt(src_ckpt_file_path, optimizer=optimizer, lr_scheduler=lr_scheduler)
 
-    # log_freq = train_config['log_freq']
-    # # student_model_without_ddp = student_model.module if module_util.check_if_wrapped(student_model) else student_model
-    # start_time = time.time()
-    # for epoch in range(args.start_epoch, training_box.num_epochs):
-    #     training_box.pre_epoch_process(epoch=epoch)
-    #     train_one_epoch(training_box, device, epoch, log_freq)
+    log_freq = train_config['log_freq']
+    # student_model_without_ddp = student_model.module if module_util.check_if_wrapped(student_model) else student_model
+    start_time = time.time()
+    for epoch in range(args.start_epoch, training_box.num_epochs):
+        # training_box.pre_epoch_process(epoch=epoch)
+        train_one_epoch(training_box, epoch, log_freq)
     #     val_top1_accuracy = evaluate(student_model, training_box.val_data_loader, device, device_ids, distributed,
     #                                  log_freq=log_freq, header='Validation:')
     #     if val_top1_accuracy > best_val_top1_accuracy and is_main_process():
@@ -133,8 +131,9 @@ if __name__ == '__main__':
     parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/test_yaml.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
-    parser.add_argument('--epoch', default=0, type=int, metavar='N', help='num of epoch')
-    parser.add_argument('-test_only', action='store_true', help='only test the models')
+    parser.add_argument('--epoch', default=100, type=int, metavar='N', help='num of epoch')
+    parser.add_argument('--start_epoch', default=0, type=int, metavar='N', help='num of epoch')
+    parser.add_argument('--test_only', action='store_true', help='only test the models')
 
     args = parser.parse_args()
     main(args)
