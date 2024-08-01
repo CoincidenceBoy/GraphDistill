@@ -1,30 +1,62 @@
 from .interfaces.registry import get_forward_proc_func
+
+# from .interfaces.post_epoch_proc import default_post_epoch_process_without_teacher
+# from .interfaces.post_forward_proc import default_post_forward_process
+# from .interfaces.pre_epoch_proc import default_pre_epoch_process_without_teacher
+# from .interfaces.pre_forward_proc import default_pre_forward_process
+# from .interfaces.registry import get_pre_epoch_proc_func, get_pre_forward_proc_func, get_forward_proc_func, \
+#     get_post_forward_proc_func, get_post_epoch_proc_func
+
 from ..datasets.utils import build_data_loaders
 from ..common.constant import def_logger
-from ..losses.registry import get_high_level_loss, get_func2extract_model_output
+from ..losses.registry import get_high_level_loss, get_low_level_loss, get_mid_level_loss, get_func2extract_model_output
 from ..optim.registry import get_optimizer, get_scheduler
 # from tensorlayerx import nn
 from torch import nn
 from ..common.module_util import check_if_wrapped
 from ..modules.utils import redesign_model
 from ..common.module_util import get_module
+from ..datasets.registry import get_dataset
+from ..datasets.utils import extract_dataset_info
 # from .interfaces.post_epoch_proc import default_pre_epoch_process_without_teacher
 
 logger = def_logger.getChild(__name__)
 
 class TrainingBox(object):
-    def setup_data_loaders(self, train_config):
-        train_data_loader_config = train_config.get('train_data_loader', dict())
-        # if 'requires_supp' not in train_data_loader_config:
-        #     train_data_loader_config['requires_supp'] = True
+    def setup_data_flows(self, train_config):
+        data_loader_dict = dict()
+        use_dataloader = train_config['use_dataloader']
+        if use_dataloader:
+            train_data_loader_config = train_config.get('train_data_loader', dict())
+            val_data_loader_config = train_config.get('val_data_loader', dict())
+            test_data_loader_config = train_config.get('test_data_loader', dict())
+        
+            data_loader_dict = build_data_loaders(self.dataset_dict, [train_data_loader_config, val_data_loader_config, test_data_loader_config])
 
-        val_data_loader_config = train_config.get('val_data_loader', dict())
-        test_data_loader_config = train_config.get('test_data_loader', dict())
-        data_loader_dict = build_data_loaders(self.dataset_dict, [train_data_loader_config, val_data_loader_config, test_data_loader_config])
-        if data_loader_dict['train'] is not None:
-            self.train_data_loader = data_loader_dict['train']
-        if data_loader_dict['val'] is not None:
-            self.val_data_loader = data_loader_dict['val']
+            if data_loader_dict['train'] is not None:
+                self.train_data_loader = data_loader_dict['train']
+            if data_loader_dict['val'] is not None:
+                self.val_data_loader = data_loader_dict['val']
+            if data_loader_dict['test'] is not None:
+                self.val_data_loader = data_loader_dict['test']
+        else:
+            data_dict = build_data_loaders(self.dataset_dict, use_dataloader=False)
+            if data_dict['train'] is not None:
+                self.train_data = data_dict['train']
+            if data_dict['val'] is not None:
+                self.val_data = data_dict['val']
+            if data_dict['test'] is not None:
+                self.test_data = data_dict['test']
+    
+    def setup_data(self, train_config):
+        data = dict()
+        dataset = self.dataset_dict
+        dataset = get_dataset(dataset['key'], **dataset['init']['kwargs'])
+        graph = dataset[0]
+        data.update(extract_dataset_info(dataset))
+        data.update(extract_dataset_info(graph))
+        
+        self.data = data
 
     def setup_loss(self, train_config):
         criterion_config = train_config['criterion']
@@ -71,9 +103,10 @@ class TrainingBox(object):
     #         post_epoch_process = get_post_epoch_proc_func(train_config['post_epoch_process'])
     #     setattr(TrainingBox, 'post_epoch_process', post_epoch_process)
 
-
     def setup(self, train_config):
-        self.setup_data_loaders(train_config)
+        self.setup_data_flows(train_config)
+
+        self.setup_data(train_config)
 
         model_config = train_config.get('model', dict())
         self.setup_model(model_config)
@@ -113,7 +146,7 @@ class TrainingBox(object):
             self.lr_scheduler = None
             self.scheduling_step = None
 
-        # self.setup_pre
+        # self.setup_pre_post_processes(train_config)
 
             
 
@@ -122,12 +155,14 @@ class TrainingBox(object):
         # Key attributes (should not be modified)
         self.org_model = model
         self.dataset_dict = dataset_dict
+        self.data = None
         # Local attributes (can be updated at each stage)
         self.model = None
         self.model_forward_proc = None
         self.target_model_pairs = list()
         self.model_io_dict = dict()
-        self.train_data_loader, self.val_data_loader, self.optimizer, self.lr_scheduler = None, None, None, None
+        self.train_data_loader, self.val_data_loader, self.test_data_loader, self.optimizer, self.lr_scheduler = None, None, None, None, None
+        self.train_data, self.val_data, self.test_data = None, None, None
         self.criterion, self.extract_model_loss = None, None
         self.model_any_frozen = None
         self.grad_accum_step = None
@@ -137,8 +172,10 @@ class TrainingBox(object):
         self.setup(train_config)
         self.num_epochs = train_config['num_epochs']
 
-    def foward_process(self, sample_batch, targets=None, supp_dict=None, **kwargs):
-        model_outputs = self.model_forward_proc(self.model, sample_batch, targets, supp_dict, **kwargs)
+    def forward_process(self, data, targets=None, supp_dict=None, **kwargs):
+        model_outputs = self.model_forward_proc(self.model, data, **kwargs)
+        return model_outputs
+
 
     def pre_epoch_process(self, *args, **kwargs):
         raise NotImplementedError()

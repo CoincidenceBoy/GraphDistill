@@ -18,6 +18,7 @@ def register_forward_proc_func(arg=None, **kwargs):
         return _register_forward_proc_func(arg)
     return _register_forward_proc_func
 
+
 def get_forward_proc_func(key):
     if key in FORWARD_PROC_FUNC_DICT:
         return FORWARD_PROC_FUNC_DICT[key]

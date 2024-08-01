@@ -1,12 +1,24 @@
+import importlib
+import sys
+import tensorlayerx
 from ..common import misc_util
+from distill.common.constant import def_logger
 
-LOSS_DICT = misc_util.get_classes_as_dict('torch.nn.modules.loss')
+logger = def_logger.getChild(__name__)
 
+# LOSS_DICT = misc_util.get_classes_as_dict('torch.nn.modules.loss')
+# LOSS_DICT = misc_util.get_classes_as_dict('tensorlayerx.losses')
+
+LOSS_DICT = dict()
 LOW_LEVEL_LOSS_DICT = dict()
 MIDDLE_LEVEL_LOSS_DICT = dict()
 HIGH_LEVEL_LOSS_DICT = dict()
 LOSS_WRAPPER_DICT = dict()
 FUNC2EXTRACT_MODEL_OUTPUT_DICT = dict()
+
+gammagl_losses_module = importlib.import_module('tensorlayerx.losses')
+assert 'tensorlayerx.losses' in sys.modules
+LOSS_DICT.update(misc_util.get_classes_as_dict("tensorlayerx.losses"))
 
 
 def register_low_level_loss(arg=None, **kwargs):

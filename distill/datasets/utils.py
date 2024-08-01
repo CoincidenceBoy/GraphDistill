@@ -24,7 +24,7 @@ def build_data_loader(dataset, data_loader_config):
     data_loader_kwargs = data_loader_config['kwargs']
     return DataLoader(dataset, collate_fn=collate_fn, **data_loader_kwargs)
 
-def build_data_loaders(dataset, data_loader_configs, accelerator=None):
+def build_data_loaders(dataset, data_loader_configs = None, use_dataloader = True):
     data_loader_dict = dict()
 
     # graph = dataset[0]
@@ -32,6 +32,13 @@ def build_data_loaders(dataset, data_loader_configs, accelerator=None):
     train_idx = mask_to_index(graph.train_mask)
     test_idx = mask_to_index(graph.test_mask)
     val_idx = mask_to_index(graph.val_mask)
+
+    if not use_dataloader:
+        data_dict = dict()
+        data_dict['train'] = train_idx
+        data_dict['test'] = test_idx
+        data_dict['val'] = val_idx
+        return data_dict
 
     for data_loader_config in data_loader_configs:
         dataset_id = data_loader_config.get('split', None)
@@ -42,3 +49,12 @@ def build_data_loaders(dataset, data_loader_configs, accelerator=None):
         elif dataset_id == 'val':
             data_loader_dict['val'] = build_data_loader(val_idx, data_loader_config)
     return data_loader_dict
+
+
+def extract_dataset_info(dataset):
+    dataset_dict = {}
+    for attr in dir(dataset):
+        if not attr.startswith("__") and not attr.startswith("_") and not callable(getattr(dataset, attr)):
+            value = getattr(dataset, attr)
+            dataset_dict[attr] = value
+    return dataset_dict

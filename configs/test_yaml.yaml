@@ -27,6 +27,7 @@ models:
 train:
   log_freq: 10
   num_epochs: 182
+  use_dataloader: False
   # sampler: 'NeighborSampler'
   #     edge_index: *dataset.edge_index
   #     node_idx: [0, 8, 45, 33]
@@ -50,12 +51,13 @@ train:
       batch_size: 128
       shuffle: False
   model:
-    forward_proc: 'forward_batch_only'
+    forward_proc: 'forward_all'
+    # forward_proc: 'forward_batch_only'
   teacher:
-    forward_proc: 'forward_batch_only'
+    forward_proc: 'forward_all'
     requires_grad: False
   student:
-    forward_proc: 'forward_batch_only'
+    forward_proc: 'forward_all'
     requires_grad: True
   optimizer:
     key: 'Adam'

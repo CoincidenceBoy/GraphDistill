@@ -28,7 +28,18 @@ def train_one_epoch(training_box, epoch, log_freq):
 
     start_time = time.time()
 
-    training_box.train_data_loader
+    data = training_box.data
+
+    optimizer = training_box.optimizer
+    metrics= tlx.metrics.Accuracy()
+    model = training_box.model
+    train_weights = model.trainable_weights
+
+    loss = training_box.extract_model_loss
+
+    training_box.forward_process(data)
+
+
 
     # for i, (data, target) in enumerate(zip(samples, targets, supp_dicts)):
         
@@ -43,7 +54,7 @@ def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ck
     #     else get_distillation_box(teacher_model, student_model, dataset_dict, train_config, lr_factor)
     training_box = get_training_box(student_model, dataset_dict, train_config)
     best_val_top1_accuracy = 0.0
-    optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
+    # optimizer, lr_scheduler = training_box.optimizer, training_box.lr_scheduler
     # # if file_util.check_if_exists(src_ckpt_file_path):
     # #     best_val_top1_accuracy, _ = load_ckpt(src_ckpt_file_path, optimizer=optimizer, lr_scheduler=lr_scheduler)
 
