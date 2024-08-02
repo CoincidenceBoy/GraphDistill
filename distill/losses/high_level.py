@@ -1,28 +1,56 @@
 from torch import nn
+import tensorlayerx as tlx
+from tensorlayerx.model import WithLoss
 
 from .registry import register_high_level_loss, get_mid_level_loss
 from ..common.constant import def_logger
+from .registry import get_low_level_loss
 
 logger = def_logger.getChild(__name__)
 
 
-class AbstractLoss(nn.Module):
-    def __init__(self, sub_terms=None, **kwargs):
-        super().__init__()
-        term_dict = dict()
-        if sub_terms is not None:
-            for loss_name, loss_config in sub_terms.items():
-                sub_criterion_or_config = loss_config['criterion']
-                sub_criterion = sub_criterion_or_config if isinstance(sub_criterion_or_config, nn.Module) \
-                    else get_mid_level_loss(sub_criterion_or_config, loss_config.get('criterion_wrapper', None))
-                term_dict[loss_name] = (sub_criterion, loss_config['weight'])
-        self.term_dict = term_dict
+class AbstractLoss(WithLoss):
+    def __init__(self, net, loss_fn):
+        super(AbstractLoss, self).__init__(backbone=net, loss_fn=loss_fn)
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError('forward function is not implemented')
 
     def __str__(self):
         raise NotImplementedError('forward function is not implemented')
+
+
+@register_high_level_loss(key='glnn_loss_func')
+class GLNNLoss(WithLoss):
+    def __init__(self, net, loss_fn):
+        loss_fn = get_low_level_loss(loss_fn)
+        super(GLNNLoss, self).__init__(backbone=net, loss_fn=loss_fn)
+        self.backbone = net
+        self.loss = loss_fn
+
+    def forward(self, data, teacher_logits):
+        student_logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+        # TODO: 添加load_ckpt模块之后，下面这行代码可以删去
+        teacher_logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+        train_y = tlx.gather(data['y'], data['t_idx'])
+        train_teacher_logits = tlx.gather(teacher_logits, data['t_idx'])
+        train_student_logits = tlx.gather(student_logits, data['t_idx'])
+        # loss = self._loss_fn(train_y, train_student_logits, train_teacher_logits, 0)
+        
+        loss_l = self._loss_fn(train_student_logits, train_y)
+        teacher_logits = train_teacher_logits
+        student_logits = train_student_logits
+        teacher_probs = tlx.softmax(teacher_logits)
+        student_probs = tlx.softmax(student_logits)
+        # compute KL divergence
+        kl_div = tlx.reduce_sum(teacher_probs * (tlx.log(teacher_probs+1e-10) - tlx.log(student_probs+1e-10)), axis=-1)
+        loss_t = tlx.reduce_mean(kl_div)
+        return 0 * loss_l + (1 - 0) * loss_t
+    
+    def __str__(self):
+        desc = 'Loss = '
+        desc += ' + ' + self.backbone + "loss:" + self.loss 
+        return desc
 
 
 @register_high_level_loss

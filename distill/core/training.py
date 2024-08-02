@@ -60,6 +60,7 @@ class TrainingBox(object):
 
     def setup_loss(self, train_config):
         criterion_config = train_config['criterion']
+        criterion_config['kwargs']['net'] = self.model
         self.criterion = get_high_level_loss(criterion_config)
         logger.info(self.criterion)
         # self.extract_model_loss = get_func2extract_model_output(criterion_config.get('func2extract_model_loss', None))
@@ -172,9 +173,10 @@ class TrainingBox(object):
         self.setup(train_config)
         self.num_epochs = train_config['num_epochs']
 
-    def forward_process(self, data, targets=None, supp_dict=None, **kwargs):
-        model_outputs = self.model_forward_proc(self.model, data, **kwargs)
-        return model_outputs
+    def forward_process(self, data, targets=None, **kwargs):
+        # model_outputs = self.model_forward_proc(self.model, data, **kwargs)
+        loss = self.criterion(data, targets)
+        return loss
 
 
     def pre_epoch_process(self, *args, **kwargs):

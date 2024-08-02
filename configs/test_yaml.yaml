@@ -71,18 +71,6 @@ train:
       milestones: [91, 136]
       gamma: 0.1
   criterion:
-    key: 'WeightedSumLoss'
+    key: 'glnn_loss_func'
     kwargs:
-      sub_terms:
-        kd:
-          criterion:
-            key: 'KDLoss'
-            kwargs:
-              student_module_path: '.'
-              student_module_io: 'output'
-              teacher_module_path: '.'
-              teacher_module_io: 'output'
-              temperature: 4.0
-              alpha: 0.9
-              reduction: 'batchmean'
-          weight: 1.0
+      loss_fn: 'softmax_cross_entropy_with_logits'

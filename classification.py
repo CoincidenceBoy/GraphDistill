@@ -17,8 +17,16 @@ from distill.optim.registry import get_optimizer, get_scheduler
 from distill.core.training import get_training_box
 from distill.core.distillation import get_distillation_box
 import time
+from distill.losses.registry import get_high_level_loss
 
 logger = def_logger.getChild(__name__)
+
+
+def compute_accuracy(logits, y, metrics):
+    metrics.update(logits, y)
+    rst = metrics.result()
+    metrics.reset()
+    return rst
 
 
 def train_one_epoch(training_box, epoch, log_freq):
@@ -29,6 +37,9 @@ def train_one_epoch(training_box, epoch, log_freq):
     start_time = time.time()
 
     data = training_box.data
+    logger.info(data)
+    t_idx = tlx.concat([training_box.train_data, training_box.test_data, training_box.val_data], axis=0)
+    data['t_idx'] = t_idx
 
     optimizer = training_box.optimizer
     metrics= tlx.metrics.Accuracy()
@@ -37,13 +48,27 @@ def train_one_epoch(training_box, epoch, log_freq):
 
     loss = training_box.extract_model_loss
 
-    training_box.forward_process(data)
+    print(training_box.forward_process(data))
 
 
 
     # for i, (data, target) in enumerate(zip(samples, targets, supp_dicts)):
         
         # loss = training_box.forward_process
+
+
+def evaluate(model, data, log_freq=10, title=None, header='Test: '):
+    model.eval()
+    metric_logger = MetricLogger(delimiter='    ')
+    metrics = tlx.metrics.Accuracy()
+    logits = model(data['x'])
+    val_logits = tlx.gather(logits, data['val_idx'])
+    val_y = tlx.gather(data['y'], data['val_idx'])
+    val_acc = compute_accuracy(val_logits, val_y, metrics)
+
+    metric_logger.meters['val_acc'].update(val_acc)
+
+    return val_acc
 
 
 

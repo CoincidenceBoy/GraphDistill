@@ -16,9 +16,11 @@ HIGH_LEVEL_LOSS_DICT = dict()
 LOSS_WRAPPER_DICT = dict()
 FUNC2EXTRACT_MODEL_OUTPUT_DICT = dict()
 
+LOSS_DICT['softmax_cross_entropy_with_logits'] = tensorlayerx.losses.softmax_cross_entropy_with_logits
 gammagl_losses_module = importlib.import_module('tensorlayerx.losses')
 assert 'tensorlayerx.losses' in sys.modules
 LOSS_DICT.update(misc_util.get_classes_as_dict("tensorlayerx.losses"))
+
 
 
 def register_low_level_loss(arg=None, **kwargs):
@@ -116,7 +118,8 @@ def get_mid_level_loss(mid_level_criterion_config, criterion_wrapper_config=None
 
 def get_low_level_loss(key, **kwargs):
     if key in LOSS_DICT:
-        return LOSS_DICT[key](**kwargs)
+        # return LOSS_DICT[key](**kwargs)
+        return LOSS_DICT[key]
     elif key in LOW_LEVEL_LOSS_DICT:
         return LOW_LEVEL_LOSS_DICT[key](**kwargs)
     raise ValueError('No loss `{}` registered'.format(key))
