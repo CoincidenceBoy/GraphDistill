@@ -1,5 +1,8 @@
 import argparse
 import os
+
+from distill.common.main_util import load_ckpt
+
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ['TL_BACKEND'] = 'torch'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
@@ -146,8 +149,8 @@ def load_model(model_config):
     model = get_model(model_config['key'], **model_config['kwargs'])
     logger.info(model)
 
-    # src_ckpt_file_path = model_config.get('src_ckpt', None)
-    # load_ckpt(src_ckpt_file_path, model=model, strict=True)
+    src_ckpt_file_path = model_config.get('src_ckpt', None)
+    load_ckpt(src_ckpt_file_path, model=model, strict=True)
     return model
 
 # def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
