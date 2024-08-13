@@ -19,8 +19,10 @@ from ..common.module_util import get_module
 from ..datasets.registry import get_dataset
 from ..datasets.utils import extract_dataset_info
 # from .interfaces.post_epoch_proc import default_pre_epoch_process_without_teacher
+from tensorlayerx.model import TrainOneStep
 
 logger = def_logger.getChild(__name__)
+
 
 class TrainingBox(object):
     def setup_data_flows(self, train_config):
@@ -76,6 +78,12 @@ class TrainingBox(object):
             self.model = redesign_model(ref_model, model_config, 'student', model_type)
 
         self.model_forward_proc = get_forward_proc_func(model_config.get('forward_proc', None))
+    
+    def setup_train_one_step(self, train_config):
+        loss_func = self.criterion
+        optimizer = self.optimizer
+        train_weights = self.model.trainable_weights
+        self.train_one_step = TrainOneStep(loss_func, optimizer, train_weights)
 
     # def setup_pre_post_processes(self, train_config):
     #     """
@@ -137,7 +145,7 @@ class TrainingBox(object):
                 
             filters_params = optim_config.get('filters_params', True)
             self.optimizer = get_optimizer(trainable_module_list, optim_config['key'], **optim_kwargs, filters_params=filters_params)
-            self.optimizer.zero_grad()
+            # self.optimizer.zero_grad()
 
         scheduler_config = train_config.get('scheduler', None)
         if scheduler_config is not None and len(scheduler_config) > 0:
@@ -148,6 +156,7 @@ class TrainingBox(object):
             self.scheduling_step = None
 
         # self.setup_pre_post_processes(train_config)
+        self.setup_train_one_step(train_config)
 
             
 
@@ -177,6 +186,12 @@ class TrainingBox(object):
         # model_outputs = self.model_forward_proc(self.model, data, **kwargs)
         loss = self.criterion(data, targets)
         return loss
+    
+    def train(self, data, targets, **kwargs):
+        self.model.set_train()
+        train_loss = self.train_one_step(data, targets)
+
+        return train_loss
 
 
     def pre_epoch_process(self, *args, **kwargs):

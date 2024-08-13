@@ -26,10 +26,10 @@ tlx_scheduler_module = importlib.import_module('tensorlayerx.optimizers.lr')
 assert 'tensorlayerx.optimizers' in sys.modules
 assert 'tensorlayerx.optimizers.lr' in sys.modules
 
-# OPTIM_DICT.update(misc_util.get_classes_as_dict('tensorlayerx.optimizers'))
-# SCHEDULER_DICT.update(misc_util.get_classes_as_dict('tensorlayerx.optimizers.lr'))
-OPTIM_DICT.update(misc_util.get_classes_as_dict('torch.optim'))
-SCHEDULER_DICT.update(misc_util.get_classes_as_dict('torch.optim.lr_scheduler'))
+OPTIM_DICT.update(misc_util.get_classes_as_dict('tensorlayerx.optimizers'))
+SCHEDULER_DICT.update(misc_util.get_classes_as_dict('tensorlayerx.optimizers.lr'))
+# OPTIM_DICT.update(misc_util.get_classes_as_dict('torch.optim'))
+# SCHEDULER_DICT.update(misc_util.get_classes_as_dict('torch.optim.lr_scheduler'))
 
 
 def register_optimizer(arg=None, **kwargs):
@@ -60,11 +60,11 @@ def register_scheduler(arg=None, **kwargs):
     return _register_scheduler
 
 
-def get_optimizer(module, key, filters_params=True, **kwargs):
+def get_optimizer(module, key, filters_params=False, **kwargs):
     logger.info(OPTIM_DICT)
     is_module = isinstance(module, nn.Module)
     if key in OPTIM_DICT:
-        optim_cls_or_func = OPTIM_DICT[key]
+        optim_cls_or_func = OPTIM_DICT[key](**kwargs)
         if is_module and filters_params:
             params = module.parameters() if is_module else module
             updatable_params = [p for p in params if p.requires_grad]
@@ -74,12 +74,13 @@ def get_optimizer(module, key, filters_params=True, **kwargs):
             #         optim_cls_or_func.defaults[param] = value
             #         logger.info(f"Updated default parameter {param} to {value}")
             return optim_cls_or_func(updatable_params, **kwargs)
-        return optim_cls_or_func(module, **kwargs)
+        # return optim_cls_or_func(module, **kwargs)
+        return optim_cls_or_func
     raise ValueError('No optimizer `{}` registered'.format(key))
 
 
 def get_scheduler(optimizer, key, *args, **kwargs):
     logger.info(SCHEDULER_DICT)
     if key in SCHEDULER_DICT:
-        return SCHEDULER_DICT[key](optimizer, *args, **kwargs)
+        return SCHEDULER_DICT[key](optimizer.lr, *args, **kwargs)
     raise ValueError('No scheduler `{}` registered'.format(key))

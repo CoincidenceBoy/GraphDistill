@@ -51,7 +51,8 @@ def train_one_epoch(training_box, epoch, log_freq):
 
     loss = training_box.extract_model_loss
 
-    print(training_box.forward_process(data))
+
+    print(training_box.train(data, model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])))
 
 
 
