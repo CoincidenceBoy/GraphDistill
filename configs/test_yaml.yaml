@@ -12,8 +12,8 @@ models:
       feature_dim: 1433
       hidden_dim: 256
       num_class: 7
-    src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
-    dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
+    src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_modelffffff.npz']
+    # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
 
   student_model:
     key: 'GCNModel'
@@ -21,8 +21,8 @@ models:
       feature_dim: 1433
       hidden_dim: 256
       num_class: 7
-    src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.pt']
-    dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.pt']
+    src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']
+    dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']
 
 train:
   log_freq: 10
