@@ -30,8 +30,6 @@ class GLNNLoss(WithLoss):
 
     def forward(self, data, teacher_logits):
         student_logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
-        # TODO: 添加load_ckpt模块之后，下面这行代码可以删去
-        teacher_logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
         train_y = tlx.gather(data['y'], data['t_idx'])
         train_teacher_logits = tlx.gather(teacher_logits, data['t_idx'])
         train_student_logits = tlx.gather(student_logits, data['t_idx'])

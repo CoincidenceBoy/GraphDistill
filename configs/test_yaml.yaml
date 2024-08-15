@@ -12,7 +12,7 @@ models:
       feature_dim: 1433
       hidden_dim: 256
       num_class: 7
-    src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_modelffffff.npz']
+    src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.npz']
     # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
 
   student_model:

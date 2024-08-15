@@ -79,7 +79,7 @@ class TrainingBox(object):
 
         self.model_forward_proc = get_forward_proc_func(model_config.get('forward_proc', None))
     
-    def setup_train_one_step(self, train_config):
+    def setup_train_one_step(self):
         loss_func = self.criterion
         optimizer = self.optimizer
         train_weights = self.model.trainable_weights
@@ -156,7 +156,7 @@ class TrainingBox(object):
             self.scheduling_step = None
 
         # self.setup_pre_post_processes(train_config)
-        self.setup_train_one_step(train_config)
+        self.setup_train_one_step()
 
             
 

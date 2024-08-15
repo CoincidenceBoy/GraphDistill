@@ -32,15 +32,6 @@ def compute_accuracy(logits, y, metrics):
     return rst
 
 
-def train_one_epoch(training_box, data, epoch, log_freq):
-    metric_logger = MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value}'))
-    header = 'Epoch: [{}]'.format(epoch)
-    model = training_box.model
-
-    training_box.train(data, model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
-
-
 def evaluate(model, data, log_freq=10, title=None, header='Test: '):
     model.eval()
     metric_logger = MetricLogger(delimiter='    ')
@@ -55,37 +46,47 @@ def evaluate(model, data, log_freq=10, title=None, header='Test: '):
     return val_acc
 
 
+def load_model(model_config):
+    model = get_model(model_config['key'], **model_config['kwargs'])
+    # logger.info(model)
+
+    # src_ckpt_file_path = model_config.get('src_ckpt', None)
+    # load_ckpt(src_ckpt_file_path, model=model, strict=True)
+    return model
+
 
 def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, config, args):
     logger.info('Start training')
     train_config = config['train']
     training_box = get_training_box(student_model, dataset_dict, train_config)
-    best_val_top1_accuracy = 0.0
+    best_val_acc = 0.0
 
     log_freq = train_config['log_freq']
     data = training_box.data
-    # logger.info(data)
     t_idx = tlx.concat([training_box.train_data, training_box.test_data, training_box.val_data], axis=0)
     data['t_idx'] = t_idx
     data['val_idx'] = training_box.val_data
     data['test_idx'] = training_box.test_data
     data['train_idx'] = training_box.train_data
+
+    model = training_box.model
     
-    start_time = time.time()
     for epoch in range(args.start_epoch, training_box.num_epochs):
         # training_box.pre_epoch_process(epoch=epoch)
-        train_one_epoch(training_box, data, epoch, log_freq)
+        train_loss = training_box.train(data, teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
 
-        evaluate(student_model, data, log_freq=log_freq, header='Validation:')
-    #     val_top1_accuracy = evaluate(student_model, training_box.val_data_loader, device, device_ids, distributed,
-    #                                  log_freq=log_freq, header='Validation:')
-    #     if val_top1_accuracy > best_val_top1_accuracy and is_main_process():
-    #         logger.info('Best top-1 accuracy: {:.4f} -> {:.4f}'.format(best_val_top1_accuracy, val_top1_accuracy))
-    #         logger.info('Updating ckpt at {}'.format(dst_ckpt_file_path))
-    #         best_val_top1_accuracy = val_top1_accuracy
-    #         save_ckpt(student_model_without_ddp, optimizer, lr_scheduler,
-    #                   best_val_top1_accuracy, args, dst_ckpt_file_path)
-    #     training_box.post_epoch_process()
+        # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
+        val_acc = evaluate(student_model, data, log_freq=log_freq, header='Validation:')
+
+        logger.info('Epoch: {:0>3d}     train loss: {:.4f}   val acc: {:.4f}'.format(epoch, train_loss, val_acc))
+        if val_acc > best_val_acc:
+            logger.info('Best accuracy: {:.4f} -> {:.4f}'.format(best_val_acc, val_acc))
+            logger.info('Updating ckpt at {}'.format(dst_ckpt_file_path))
+            best_val_acc = val_acc
+            # student_model.save_weights("./"+student_model.name+".npz", format='npz_dict')
+            student_model.save_weights(dst_ckpt_file_path, format='npz_dict')
+
+        # training_box.post_epoch_process()
 
     # if distributed:
     #     dist.barrier()
@@ -95,6 +96,14 @@ def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ck
     # logger.info('Training time {}'.format(total_time_str))
     # training_box.clean_modules()
 
+    model.load_weights(dst_ckpt_file_path, format='npz_dict')
+    logits = model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+    test_logits = tlx.gather(logits, data['test_idx'])
+    test_y = tlx.gather(data['y'], data['test_idx'])
+    test_acc = compute_accuracy(test_logits, test_y, tlx.metrics.Accuracy())
+
+    logger.info('Test acc: {:.4f}'.format(test_acc))
+
 
 
 
@@ -103,9 +112,6 @@ def main(args):
     # logger.info(args)
     config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)))
     # logger.info(config)
-    dataset_dict = config['dataset']
-    # dataset = get_dataset(dataset_dict['key'], **dataset_dict['init']['kwargs'])
-    # logger.info(dataset)
 
     models_config = config['models']
     teacher_model_config = models_config.get('teacher_model', None)
@@ -113,14 +119,7 @@ def main(args):
     teacher_model = load_model(teacher_model_config) if teacher_model_config is not None else None
     student_model = load_model(student_model_config) if student_model_config is not None else None
 
-    # optimizer_dict = config['train']['optimizer']
-    # optimizer = get_optimizer(teacher_model, optimizer_dict['key'], **optimizer_dict['kwargs'])
-    # logger.info(optimizer)
-    # scheduler_dict = config['train']['scheduler']
-    # scheduler = get_scheduler(optimizer, scheduler_dict['key'], **scheduler_dict['kwargs'])
-
-    # logger.info(optimizer)
-    # logger.info(scheduler)
+    teacher_model.load_weights(teacher_model_config['src_ckpt'], format='npz_dict')
 
     src_ckpt_file_path = student_model_config.get('src_ckpt', None)
     dst_ckpt_file_path = student_model_config['dst_ckpt']
@@ -129,24 +128,6 @@ def main(args):
 
     if not args.test_only:
         train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path, config, args)
-
-def load_model(model_config):
-    model = get_model(model_config['key'], **model_config['kwargs'])
-    # logger.info(model)
-
-    src_ckpt_file_path = model_config.get('src_ckpt', None)
-    load_ckpt(src_ckpt_file_path, model=model, strict=True)
-    return model
-
-# def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, device, config, args):
-#     logger.info('Start training')
-#     train_config = config['train']
-#     training_box = DistillationBox(teacher_model, student_model, dataset_dict, train_config, device)
-
-
-# def evaluate(model, data_loader, device):
-#     pass
-
 
 
 if __name__ == '__main__':
