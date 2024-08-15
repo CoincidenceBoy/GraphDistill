@@ -32,7 +32,7 @@ def compute_accuracy(logits, y, metrics):
     return rst
 
 
-def evaluate(model, data, log_freq=10, title=None, header='Test: '):
+def evaluate(model, data, log_freq=10, title=None, header='Val: '):
     model.eval()
     metric_logger = MetricLogger(delimiter='    ')
     metrics = tlx.metrics.Accuracy()

@@ -1,6 +1,5 @@
 import importlib
 import sys
-# from torch import nn
 import tensorlayerx as tlx
 from tensorlayerx import nn
 
@@ -12,13 +11,6 @@ logger = def_logger.getChild(__name__)
 
 OPTIM_DICT = dict()
 SCHEDULER_DICT = dict()
-
-#['Adadelta', 'Adagrad', 'Adam', 'Adamax', 'Ftrl', 'Nadam', 'RMSprop', 'SGD', 'Momentum', 'Lamb', 'LARS']
-# [
-#     'LRScheduler', 'NoamDecay', 'PiecewiseDecay', 'NaturalExpDecay', 'InverseTimeDecay', 'PolynomialDecay',
-#     'LinearWarmup', 'ExponentialDecay', 'MultiStepDecay', 'StepDecay', 'LambdaDecay', 'ReduceOnPlateau',
-#     'CosineAnnealingDecay'
-# ]
 
 tlx_optim_module = importlib.import_module('tensorlayerx.optimizers')
 tlx_scheduler_module = importlib.import_module('tensorlayerx.optimizers.lr')
@@ -61,7 +53,6 @@ def register_scheduler(arg=None, **kwargs):
 
 
 def get_optimizer(module, key, filters_params=False, **kwargs):
-    logger.info(OPTIM_DICT)
     is_module = isinstance(module, nn.Module)
     if key in OPTIM_DICT:
         optim_cls_or_func = OPTIM_DICT[key](**kwargs)
@@ -80,7 +71,6 @@ def get_optimizer(module, key, filters_params=False, **kwargs):
 
 
 def get_scheduler(optimizer, key, *args, **kwargs):
-    logger.info(SCHEDULER_DICT)
     if key in SCHEDULER_DICT:
         return SCHEDULER_DICT[key](optimizer.lr, *args, **kwargs)
     raise ValueError('No scheduler `{}` registered'.format(key))

@@ -17,7 +17,6 @@ assert 'gammagl.models' in sys.modules
 MODEL_DICT.update(misc_util.get_classes_as_dict('gammagl.models'))
 
 def get_model(key, *args, **kwargs):
-    logger.info(MODEL_DICT)
     if key in MODEL_DICT:
         return MODEL_DICT[key](*args, **kwargs)
     raise ValueError('model_name `{}` is not expected'.format(key))

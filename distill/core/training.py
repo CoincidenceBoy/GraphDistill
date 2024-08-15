@@ -50,7 +50,7 @@ class TrainingBox(object):
             if data_dict['test'] is not None:
                 self.test_data = data_dict['test']
     
-    def setup_data(self, train_config):
+    def setup_data(self):
         data = dict()
         dataset = self.dataset_dict
         dataset = get_dataset(dataset['key'], **dataset['init']['kwargs'])
@@ -71,9 +71,7 @@ class TrainingBox(object):
         # TODO: 设计hook机制，从checkpoint加载模型
         unwrapped_org_model = self.org_model.module if check_if_wrapped(self.org_model) else self.org_model
         ref_model = unwrapped_org_model
-        # logger.info(unwrapped_org_model)
         if len(model_config) > 0 or (len(model_config) == 0 and self.model is None):
-            logger.info('[student model]')
             model_type = 'original'
             self.model = redesign_model(ref_model, model_config, 'student', model_type)
 
@@ -115,7 +113,7 @@ class TrainingBox(object):
     def setup(self, train_config):
         self.setup_data_flows(train_config)
 
-        self.setup_data(train_config)
+        self.setup_data()
 
         model_config = train_config.get('model', dict())
         self.setup_model(model_config)
@@ -139,8 +137,6 @@ class TrainingBox(object):
                     module_wise_kwargs['params'] = module.parameters() if isinstance(module, nn.Module) else [module]
                     trainable_module_list.append(module_wise_kwargs)
             else:
-                # TODO: 使用tlx提供的nn会报错，使用torch的就可以正常运行
-                # trainable_module_list = nn.ModuleList([self.model])
                 trainable_module_list = self.model.trainable_weights
                 
             filters_params = optim_config.get('filters_params', True)
@@ -157,8 +153,6 @@ class TrainingBox(object):
 
         # self.setup_pre_post_processes(train_config)
         self.setup_train_one_step()
-
-            
 
 
     def __init__(self, model, dataset_dict, train_config):
@@ -193,11 +187,8 @@ class TrainingBox(object):
 
         return train_loss
 
-
     def pre_epoch_process(self, *args, **kwargs):
         raise NotImplementedError()
-
-
 
 
 def get_training_box(model, dataset_dict, train_config):

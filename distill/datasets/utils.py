@@ -17,7 +17,6 @@ logger = def_logger.getChild(__name__)
 
 def build_data_loader(dataset, data_loader_config):
 
-
     # collate_fn这个函数还是需要的，图分类中可以把不同维度的embedding进行对齐，现在先把他注释了
     # collate_fn = get_collate_func(data_loader_config.get('collate_fn', None))
     collate_fn = None

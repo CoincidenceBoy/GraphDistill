@@ -19,11 +19,9 @@ gammagl_datasets_module = importlib.import_module('gammagl.datasets')
 # 确保 gammagl.datasets 模块现在在 sys.modules 中
 assert 'gammagl.datasets' in sys.modules
 DATASET_DICT.update(misc_util.get_classes_as_dict('gammagl.datasets'))
-# BATCH_SAMPLER_DICT.update(misc_util.get_classes_as_dict('torch.utils.data.sampler'))
 
 
 def get_dataset(key, *args, **kwargs):
-    logger.info(DATASET_DICT)
     if key in DATASET_DICT:
         return DATASET_DICT[key](*args, **kwargs)
     raise ValueError('dataset_name `{}` is not expected'.format(key))
