@@ -49,7 +49,7 @@ class GLNNLoss(WithLoss):
     
     def __str__(self):
         desc = 'Loss = '
-        desc += ' + ' + self.backbone + "loss:" + self.loss 
+        desc += ' + ' + self.backbone.name + "loss:" + self.loss.__name__
         return desc
 
 
