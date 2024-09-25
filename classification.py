@@ -109,7 +109,7 @@ def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ck
 
 def main(args):
     set_basic_log_config()
-    # logger.info(args)
+    logger.info(args)
     config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)))
     # logger.info(config)
 
