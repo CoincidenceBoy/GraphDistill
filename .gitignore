@@ -1,4 +1,20 @@
+# 忽略 .idea 目录（通常是 IDE 配置）
 .idea/
+
+# 忽略 Jupyter Notebook 的检查点
 .ipynb_checkpoints/
+
+# 忽略 Python 生成的字节码文件和缓存目录
 __pycache__/
+
+# 忽略 EditorConfig 文件
 .editorconfig
+
+# 忽略所有 .npz 文件
+*.npz
+
+# 忽略 .pt 文件（PyTorch 模型权重和处理后的数据）
+*.pt
+
+# 忽略特定的文件路径
+resource/dataset/cora/*
