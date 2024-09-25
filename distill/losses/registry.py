@@ -16,7 +16,7 @@ HIGH_LEVEL_LOSS_DICT = dict()
 LOSS_WRAPPER_DICT = dict()
 FUNC2EXTRACT_MODEL_OUTPUT_DICT = dict()
 
-LOSS_DICT['softmax_cross_entropy_with_logits'] = tensorlayerx.losses.softmax_cross_entropy_with_logits
+# LOSS_DICT['softmax_cross_entropy_with_logits'] = tensorlayerx.losses.softmax_cross_entropy_with_logits
 gammagl_losses_module = importlib.import_module('tensorlayerx.losses')
 assert 'tensorlayerx.losses' in sys.modules
 LOSS_DICT.update(misc_util.get_classes_as_dict("tensorlayerx.losses"))

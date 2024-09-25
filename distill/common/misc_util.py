@@ -14,6 +14,9 @@ def get_classes_as_dict(package_name, is_lower=False):
 
 def get_classes(package_name, require_names=False):
     members = inspect.getmembers(sys.modules[package_name], inspect.isclass)
+    if not members:
+        print(f"No classes found in {package_name}, checking for functions instead.")
+        members = inspect.getmembers(sys.modules[package_name], inspect.isfunction)
     if require_names:
         return members
     return [obj for _, obj in members]
