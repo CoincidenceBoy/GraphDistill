@@ -17,4 +17,4 @@ __pycache__/
 *.pt
 
 # 忽略特定的文件路径
-resource/dataset/cora/*
+resource/*
