@@ -22,11 +22,12 @@ class AbstractLoss(WithLoss):
 
 @register_high_level_loss(key='glnn_loss_func')
 class GLNNLoss(WithLoss):
-    def __init__(self, net, loss_fn):
+    def __init__(self, net, loss_fn, lambad=0.1):
         loss_fn = get_low_level_loss(loss_fn)
         super(GLNNLoss, self).__init__(backbone=net, loss_fn=loss_fn)
         self.backbone = net
         self.loss = loss_fn
+        self.lambad = lambad
 
     def forward(self, data, teacher_logits):
         student_logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
@@ -43,7 +44,7 @@ class GLNNLoss(WithLoss):
         # compute KL divergence
         kl_div = tlx.reduce_sum(teacher_probs * (tlx.log(teacher_probs+1e-10) - tlx.log(student_probs+1e-10)), axis=-1)
         loss_t = tlx.reduce_mean(kl_div)
-        return 0 * loss_l + (1 - 0) * loss_t
+        return self.lambad * loss_l + (1 - self.lambad) * loss_t
     
     def __str__(self):
         desc = 'Loss = '

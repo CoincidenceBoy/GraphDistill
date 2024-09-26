@@ -85,3 +85,4 @@ train:
     key: 'glnn_loss_func'
     kwargs:
       loss_fn: 'softmax_cross_entropy_with_logits'
+      lambad: 0.1
