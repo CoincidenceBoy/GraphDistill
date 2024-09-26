@@ -23,6 +23,8 @@ def get_model(model_config):
 
     # 使用预处理函数将参数转换为模型所需的格式
     kwargs = preprocess_args(key, common_args, special_args)
+    if not kwargs:
+        kwargs = model_config.get('kwargs', {})
 
     if key in MODEL_DICT:
         return MODEL_DICT[key](**kwargs)
@@ -99,7 +101,9 @@ def preprocess_args(model_key, common_args, special_args):
 
 
     if model_key not in param_map:
-        raise ValueError(f"Unknown model key: {model_key}")
+        # 合并 common_args 和 special_args
+        kwargs = {**common_args, **special_args}
+        return kwargs
 
     # 获取当前模型的参数映射
     mapped_args = {}
