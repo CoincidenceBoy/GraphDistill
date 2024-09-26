@@ -47,7 +47,8 @@ def evaluate(model, data, log_freq=10, title=None, header='Val: '):
 
 
 def load_model(model_config):
-    model = get_model(model_config['key'], **model_config['kwargs'])
+    model = get_model(model_config)
+    # model = get_model(model_config['key'], **model_config['kwargs'])
     # logger.info(model)
 
     # src_ckpt_file_path = model_config.get('src_ckpt', None)
@@ -132,7 +133,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
-    # parser.add_argument('--config', required=True, help='yaml file path')
+    # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
     parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')

@@ -8,27 +8,29 @@ dataset:
 models:
   teacher_model:
     key: 'GraphSAGE_Full_Model'
-    kwargs:
-      in_feats: 1433
-      n_hidden: 256
-      n_layers: 2
-      n_classes: 7
-      dropout: 0
-      aggregator_type: 'gcn'
+    common_args:
+      feature_dim: 1433
+      hidden_dim: 256
+      num_class: 7
+      num_layers: 2
+      drop_rate: 0
       activation: !import_get
         key: 'tensorlayerx.nn.ReLU'
+    special_args:
+      aggregator_type: 'gcn'
+      
     src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.npz']
     # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
 
   student_model:
     key: 'MLP'
-    kwargs:
-      in_channels: 1433
-      hidden_channels: 256
-      out_channels: 7
-      dropout: 0.6
+    common_args:
+      feature_dim: 1433
+      hidden_dim: 256
+      num_class: 7
       num_layers: 2
-      act: !import_get
+      drop_rate: 0.6
+      activation: !import_get
         key: 'tensorlayerx.nn.ReLU'
     # src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']
     # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']

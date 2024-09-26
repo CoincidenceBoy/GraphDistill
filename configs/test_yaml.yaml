@@ -8,7 +8,7 @@ dataset:
 models:
   teacher_model:
     key: 'GCNModel'
-    kwargs:
+    common_args:
       feature_dim: 1433
       hidden_dim: 256
       num_class: 7
@@ -17,7 +17,7 @@ models:
 
   student_model:
     key: 'GCNModel'
-    kwargs:
+    common_args:
       feature_dim: 1433
       hidden_dim: 256
       num_class: 7
