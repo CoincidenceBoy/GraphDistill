@@ -20,9 +20,9 @@ class AbstractLoss(WithLoss):
         raise NotImplementedError('forward function is not implemented')
 
 
-@register_high_level_loss(key='glnn_loss_func')
+@register_high_level_loss(key='KD_Loss')
 class GLNNLoss(WithLoss):
-    def __init__(self, net, loss_fn, lambad=0.1):
+    def __init__(self, net, loss_fn = 'softmax_cross_entropy_with_logits', lambad=0.1):
         loss_fn = get_low_level_loss(loss_fn)
         super(GLNNLoss, self).__init__(backbone=net, loss_fn=loss_fn)
         self.backbone = net

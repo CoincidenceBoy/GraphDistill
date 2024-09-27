@@ -10,7 +10,32 @@ logger = def_logger.getChild(__name__)
 
 @register_mid_level_loss
 class KDLoss(nn.KLDivLoss):
+    """
+    A standard knowledge distillation (KD) loss module.
 
+    .. math::
+
+       L_{KD} = \\alpha \cdot L_{CE} + (1 - \\alpha) \cdot \\tau^2 \cdot L_{KL}
+
+    Geoffrey Hinton, Oriol Vinyals, Jeff Dean: `"Distilling the Knowledge in a Neural Network" <https://arxiv.org/abs/1503.02531>`_ @ NIPS 2014 Deep Learning and Representation Learning Workshop (2014)
+
+    :param student_module_path: student model's logit module path.
+    :type student_module_path: str
+    :param student_module_io: 'input' or 'output' of the module in the student model.
+    :type student_module_io: str
+    :param teacher_module_path: teacher model's logit module path.
+    :type teacher_module_path: str
+    :param teacher_module_io: 'input' or 'output' of the module in the teacher model.
+    :type teacher_module_io: str
+    :param temperature: hyperparameter :math:`\\tau` to soften class-probability distributions.
+    :type temperature: float
+    :param alpha: balancing factor for :math:`L_{CE}`, cross-entropy.
+    :type alpha: float
+    :param beta: balancing factor (default: :math:`1 - \\alpha`) for :math:`L_{KL}`, KL divergence between class-probability distributions softened by :math:`\\tau`.
+    :type beta: float or None
+    :param reduction: ``reduction`` for KLDivLoss. If ``reduction`` = 'batchmean', CrossEntropyLoss's ``reduction`` will be 'mean'.
+    :type reduction: str or None
+    """
     def __init__(self, student_module_path, student_module_io, teacher_module_path, teacher_module_io,
                  temperature, alpha=None, beta=None, reduction='batchmean', **kwargs):
         super().__init__(reduction=reduction)
