@@ -1,3 +1,5 @@
+type:
+  "OfflineDistillation"
 dataset:
   key: 'Planetoid'
   init:
@@ -18,7 +20,6 @@ models:
         key: 'tensorlayerx.nn.ReLU'
     special_args:
       aggregator_type: 'gcn'
-      
     src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.npz']
     # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
 

@@ -62,7 +62,10 @@ class TrainingBox(object):
 
     def setup_loss(self, train_config):
         criterion_config = train_config['criterion']
+        if criterion_config.get('kwargs', None) is None:
+            criterion_config['kwargs'] = dict()
         criterion_config['kwargs']['net'] = self.model
+        # criterion_config['net'] = self.model
         self.criterion = get_high_level_loss(criterion_config)
         logger.info(self.criterion)
         # self.extract_model_loss = get_func2extract_model_output(criterion_config.get('func2extract_model_loss', None))

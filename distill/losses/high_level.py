@@ -18,6 +18,31 @@ class AbstractLoss(WithLoss):
 
     def __str__(self):
         raise NotImplementedError('forward function is not implemented')
+    
+
+@register_high_level_loss(key='CrossEntropy')
+class CrossEntropyLoss(WithLoss):
+    def __init__(self, net, loss_fn = 'softmax_cross_entropy_with_logits'):
+        loss_fn = get_low_level_loss(loss_fn)
+        super(CrossEntropyLoss, self).__init__(backbone=net, loss_fn=loss_fn)
+        self.net = net
+
+    def forward(self, data, y):
+        if self.net.__class__.__name__ == "GCNModel":
+            logits = self.backbone_network(data['x'], data['edge_index'], None, data['num_nodes'])
+        elif self.net.__class__.__name__ == "SAGE":
+            logits = self.backbone_network(data['x'], data['edge_index'])
+        elif self.net.__class__.__name__ == "GAT":
+            logits = self.backbone_network(data['x'], data['edge_index'], data['num_nodes'])
+        elif self.net.__class__.__name__ == "APPNP":
+            logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+        elif self.net.__class__.__name__ == "MLP":
+            logits = self.backbone_network(data['x'])
+        train_logits = tlx.gather(logits, data['train_idx'])
+        train_y = tlx.gather(data['y'], data['train_idx'])
+        loss = self._loss_fn(train_logits, train_y)
+        return loss
+
 
 
 @register_high_level_loss(key='KD_Loss')

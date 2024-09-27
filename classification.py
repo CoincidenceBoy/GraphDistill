@@ -21,6 +21,8 @@ from distill.core.training import get_training_box
 from distill.core.distillation import get_distillation_box
 import time
 from distill.losses.registry import get_high_level_loss
+import os.path as osp
+
 
 logger = def_logger.getChild(__name__)
 
@@ -56,10 +58,70 @@ def load_model(model_config):
     return model
 
 
-def train(teacher_model, student_model, dataset_dict, src_ckpt_file_path, dst_ckpt_file_path, config, args):
+def train(teacher_model, student_model, config, args):
+
+    student_model_config = config['models']['student_model']
+
+    src_ckpt_file_path = student_model_config.get('src_ckpt', None)
+    dst_ckpt_file_path = student_model_config['dst_ckpt']
+
+    dataset_config = config['dataset']
+
+    models_config = config['models']
+    teacher_model_config = models_config.get('teacher_model', None)
+    student_model_config = models_config.get('student_model', None)
+
+    distill_type = config['type']
+    teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', None)
+    if distill_type == 'OfflineDistillation':
+        if teacher_model_ckpt_path is None:
+            config['models']['teacher_model']['src_ckpt'] = osp.join('./', 'resource', 'ckpt', dataset_config['init']['kwargs']['name'] + '-teacher_model.npz')
+            teacher_dst_ckpt_file_path = config['models']['teacher_model']['src_ckpt']
+            train_config = config['train_teacher']
+            training_box = get_training_box(teacher_model, dataset_config, train_config)
+            best_val_acc = 0.0
+
+            log_freq = train_config['log_freq']
+            data = training_box.data
+            # t_idx = tlx.concat([training_box.train_data, training_box.test_data, training_box.val_data], axis=0)
+            # data['t_idx'] = t_idx
+            data['val_idx'] = training_box.val_data
+            data['test_idx'] = training_box.test_data
+            data['train_idx'] = training_box.train_data
+
+            model = training_box.model
+            
+            for epoch in range(args.start_epoch, training_box.num_epochs):
+                # training_box.pre_epoch_process(epoch=epoch)
+                train_loss = training_box.train(data, teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
+                # train_loss = training_box.train(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
+
+                # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
+                val_acc = evaluate(teacher_model, data, log_freq=log_freq, header='Validation:')
+
+                logger.info('Epoch: {:0>3d}     train loss: {:.4f}   val acc: {:.4f}'.format(epoch, train_loss, val_acc))
+                if val_acc > best_val_acc:
+                    logger.info('Best accuracy: {:.4f} -> {:.4f}'.format(best_val_acc, val_acc))
+                    logger.info('Updating ckpt at {}'.format(teacher_dst_ckpt_file_path))
+                    best_val_acc = val_acc
+                    # student_model.save_weights("./"+student_model.name+".npz", format='npz_dict')
+                    teacher_model.save_weights(teacher_dst_ckpt_file_path, format='npz_dict')
+                    teacher_model_ckpt_path = teacher_dst_ckpt_file_path
+            # teacher_model.load_weights(config['models']['teacher_model']['src_ckpt'], format='npz_dict')
+
+    
+    teacher_model.load_weights(teacher_model_config['src_ckpt'], format='npz_dict')
+
+    logits = teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+    test_logits = tlx.gather(logits, data['test_idx'])
+    test_y = tlx.gather(data['y'], data['test_idx'])
+    test_acc = compute_accuracy(test_logits, test_y, tlx.metrics.Accuracy())
+
+    logger.info('Teacher Model Test acc: {:.4f}'.format(test_acc))
+
     logger.info('Start training')
     train_config = config['train']
-    training_box = get_training_box(student_model, dataset_dict, train_config)
+    training_box = get_training_box(student_model, dataset_config, train_config)
     best_val_acc = 0.0
 
     log_freq = train_config['log_freq']
@@ -120,21 +182,22 @@ def main(args):
     teacher_model = load_model(teacher_model_config) if teacher_model_config is not None else None
     student_model = load_model(student_model_config) if student_model_config is not None else None
 
-    teacher_model.load_weights(teacher_model_config['src_ckpt'], format='npz_dict')
+    # teacher_model.load_weights(teacher_model_config['src_ckpt'], format='npz_dict')
 
-    src_ckpt_file_path = student_model_config.get('src_ckpt', None)
-    dst_ckpt_file_path = student_model_config['dst_ckpt']
+    # src_ckpt_file_path = student_model_config.get('src_ckpt', None)
+    # dst_ckpt_file_path = student_model_config['dst_ckpt']
 
-    dataset_config = config['dataset']
+    # dataset_config = config['dataset']
 
     if not args.test_only:
-        train(teacher_model, student_model, dataset_config, src_ckpt_file_path, dst_ckpt_file_path, config, args)
+        train(teacher_model, student_model, config, args)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
-    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
+    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/test_yaml.yaml", help='yaml file path')
+    # parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
     parser.add_argument('--epoch', default=100, type=int, metavar='N', help='num of epoch')
