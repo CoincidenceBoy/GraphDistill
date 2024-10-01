@@ -9,7 +9,7 @@ from .registry import get_low_level_loss
 logger = def_logger.getChild(__name__)
 
 
-def get_module_logits(net, data):
+def get_model_logits(net, data):
     if "GCN" in net.__class__.__name__ :
         logits = net(data['x'], data['edge_index'], None, data['num_nodes'])
     elif "SAGE" in net.__class__.__name__ :
@@ -43,7 +43,7 @@ class CrossEntropyLoss(WithLoss):
         self.net = net
 
     def forward(self, data, y):
-        logits = get_module_logits(self.backbone_network, data)
+        logits = get_model_logits(self.backbone_network, data)
         train_logits = tlx.gather(logits, data['train_idx'])
         train_y = tlx.gather(data['y'], data['train_idx'])
         loss = self._loss_fn(train_logits, train_y)
@@ -61,7 +61,7 @@ class GLNNLoss(WithLoss):
         self.lambad = lambad
 
     def forward(self, data, teacher_logits):
-        student_logits = get_module_logits(self.backbone_network, data)
+        student_logits = get_model_logits(self.backbone_network, data)
         train_y = tlx.gather(data['y'], data['t_idx'])
         train_teacher_logits = tlx.gather(teacher_logits, data['t_idx'])
         train_student_logits = tlx.gather(student_logits, data['t_idx'])

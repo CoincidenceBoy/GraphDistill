@@ -14,6 +14,7 @@ from distill.common import yaml_util
 from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue
 from distill.modules.registry import get_model
 from distill.core.distillation import DistillationBox
+from distill.losses.high_level import get_model_logits
 from distill.common.constant import def_logger
 from distill.datasets.registry import get_dataset
 from distill.optim.registry import get_optimizer, get_scheduler
@@ -56,20 +57,6 @@ def load_model(model_config):
     # src_ckpt_file_path = model_config.get('src_ckpt', None)
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)
     return model
-
-def get_model_logits(teacher_model, data):
-    if "GCN" in teacher_model.__class__.__name__:
-        logits = teacher_model(data['x'], data['edge_index'], None, data['num_nodes'])
-    elif "SAGE" in teacher_model.__class__.__name__:
-        logits = teacher_model(data['x'], data['edge_index'])
-    elif "GAT" in teacher_model.__class__.__name__:
-        logits = teacher_model(data['x'], data['edge_index'], data['num_nodes'])
-    elif "APPNP" in teacher_model.__class__.__name__:
-        logits = teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
-    elif "MLP" in teacher_model.__class__.__name__:
-        logits = teacher_model(data['x'])
-
-    return logits
 
 
 def train(teacher_model, student_model, config, args):
@@ -209,7 +196,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
-    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/test_yaml.yaml", help='yaml file path')
+    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
     # parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
