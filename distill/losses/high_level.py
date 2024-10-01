@@ -9,6 +9,21 @@ from .registry import get_low_level_loss
 logger = def_logger.getChild(__name__)
 
 
+def get_module_logits(net, data):
+    if "GCN" in net.__class__.__name__ :
+        logits = net(data['x'], data['edge_index'], None, data['num_nodes'])
+    elif "SAGE" in net.__class__.__name__ :
+        logits = net(data['x'], data['edge_index'])
+    elif "GAT" in net.__class__.__name__ :
+        logits = net(data['x'], data['edge_index'], data['num_nodes'])
+    elif "APPNP" in net.__class__.__name__ :
+        logits = net(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+    elif "MLP" in net.__class__.__name__ :
+        logits = net(data['x'])
+    else:
+        raise ValueError(f"Unsupported network class: {self.net.__class__.__name__}")
+    return logits
+
 class AbstractLoss(WithLoss):
     def __init__(self, net, loss_fn):
         super(AbstractLoss, self).__init__(backbone=net, loss_fn=loss_fn)
@@ -28,16 +43,7 @@ class CrossEntropyLoss(WithLoss):
         self.net = net
 
     def forward(self, data, y):
-        if self.net.__class__.__name__ == "GCNModel":
-            logits = self.backbone_network(data['x'], data['edge_index'], None, data['num_nodes'])
-        elif self.net.__class__.__name__ == "SAGE":
-            logits = self.backbone_network(data['x'], data['edge_index'])
-        elif self.net.__class__.__name__ == "GAT":
-            logits = self.backbone_network(data['x'], data['edge_index'], data['num_nodes'])
-        elif self.net.__class__.__name__ == "APPNP":
-            logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
-        elif self.net.__class__.__name__ == "MLP":
-            logits = self.backbone_network(data['x'])
+        logits = get_module_logits(self.backbone_network, data)
         train_logits = tlx.gather(logits, data['train_idx'])
         train_y = tlx.gather(data['y'], data['train_idx'])
         loss = self._loss_fn(train_logits, train_y)
@@ -55,7 +61,7 @@ class GLNNLoss(WithLoss):
         self.lambad = lambad
 
     def forward(self, data, teacher_logits):
-        student_logits = self.backbone_network(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+        student_logits = get_module_logits(self.backbone_network, data)
         train_y = tlx.gather(data['y'], data['t_idx'])
         train_teacher_logits = tlx.gather(teacher_logits, data['t_idx'])
         train_student_logits = tlx.gather(student_logits, data['t_idx'])

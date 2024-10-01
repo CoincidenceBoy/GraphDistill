@@ -38,7 +38,7 @@ def evaluate(model, data, log_freq=10, title=None, header='Val: '):
     model.eval()
     metric_logger = MetricLogger(delimiter='    ')
     metrics = tlx.metrics.Accuracy()
-    logits = model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+    logits = get_model_logits(model, data)
     val_logits = tlx.gather(logits, data['val_idx'])
     val_y = tlx.gather(data['y'], data['val_idx'])
     val_acc = compute_accuracy(val_logits, val_y, metrics)
@@ -57,13 +57,22 @@ def load_model(model_config):
     # load_ckpt(src_ckpt_file_path, model=model, strict=True)
     return model
 
+def get_model_logits(teacher_model, data):
+    if "GCN" in teacher_model.__class__.__name__:
+        logits = teacher_model(data['x'], data['edge_index'], None, data['num_nodes'])
+    elif "SAGE" in teacher_model.__class__.__name__:
+        logits = teacher_model(data['x'], data['edge_index'])
+    elif "GAT" in teacher_model.__class__.__name__:
+        logits = teacher_model(data['x'], data['edge_index'], data['num_nodes'])
+    elif "APPNP" in teacher_model.__class__.__name__:
+        logits = teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+    elif "MLP" in teacher_model.__class__.__name__:
+        logits = teacher_model(data['x'])
+
+    return logits
+
 
 def train(teacher_model, student_model, config, args):
-
-    student_model_config = config['models']['student_model']
-
-    src_ckpt_file_path = student_model_config.get('src_ckpt', None)
-    dst_ckpt_file_path = student_model_config['dst_ckpt']
 
     dataset_config = config['dataset']
 
@@ -72,9 +81,9 @@ def train(teacher_model, student_model, config, args):
     student_model_config = models_config.get('student_model', None)
 
     distill_type = config['type']
-    teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', None)
+    teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', './resource/ckpt/default-teacher_model.npz')
     if distill_type == 'OfflineDistillation':
-        if teacher_model_ckpt_path is None:
+        if not os.path.isfile(teacher_model_ckpt_path):
             config['models']['teacher_model']['src_ckpt'] = osp.join('./', 'resource', 'ckpt', dataset_config['init']['kwargs']['name'] + '-teacher_model.npz')
             teacher_dst_ckpt_file_path = config['models']['teacher_model']['src_ckpt']
             train_config = config['train_teacher']
@@ -93,7 +102,7 @@ def train(teacher_model, student_model, config, args):
             
             for epoch in range(args.start_epoch, training_box.num_epochs):
                 # training_box.pre_epoch_process(epoch=epoch)
-                train_loss = training_box.train(data, teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
+                train_loss = training_box.train(data, get_model_logits(teacher_model, data))
                 # train_loss = training_box.train(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
 
                 # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
@@ -110,17 +119,21 @@ def train(teacher_model, student_model, config, args):
             # teacher_model.load_weights(config['models']['teacher_model']['src_ckpt'], format='npz_dict')
 
     
-    teacher_model.load_weights(teacher_model_config['src_ckpt'], format='npz_dict')
+    teacher_model.load_weights(teacher_dst_ckpt_file_path, format='npz_dict')
 
-    logits = teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+    logits = get_model_logits(teacher_model, data)
     test_logits = tlx.gather(logits, data['test_idx'])
     test_y = tlx.gather(data['y'], data['test_idx'])
     test_acc = compute_accuracy(test_logits, test_y, tlx.metrics.Accuracy())
 
     logger.info('Teacher Model Test acc: {:.4f}'.format(test_acc))
 
-    logger.info('Start training')
+#  --------------------------------------- 
+
+    logger.info('Student Start training')
     train_config = config['train']
+    student_model_config = config['models']['student_model']
+    dst_ckpt_file_path = student_model_config['dst_ckpt']
     training_box = get_training_box(student_model, dataset_config, train_config)
     best_val_acc = 0.0
 
@@ -136,7 +149,7 @@ def train(teacher_model, student_model, config, args):
     
     for epoch in range(args.start_epoch, training_box.num_epochs):
         # training_box.pre_epoch_process(epoch=epoch)
-        train_loss = training_box.train(data, teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
+        train_loss = training_box.train(data, get_model_logits(teacher_model, data))
 
         # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
         val_acc = evaluate(student_model, data, log_freq=log_freq, header='Validation:')
@@ -160,7 +173,7 @@ def train(teacher_model, student_model, config, args):
     # training_box.clean_modules()
 
     model.load_weights(dst_ckpt_file_path, format='npz_dict')
-    logits = model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes'])
+    logits = get_model_logits(model, data)
     test_logits = tlx.gather(logits, data['test_idx'])
     test_y = tlx.gather(data['y'], data['test_idx'])
     test_acc = compute_accuracy(test_logits, test_y, tlx.metrics.Accuracy())

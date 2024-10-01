@@ -9,32 +9,34 @@ dataset:
 
 models:
   teacher_model:
-    key: 'GraphSAGE_Full_Model'
+    key: &teacher_name 'GraphSAGE_Full_Model'
     common_args:
       feature_dim: 1433
       hidden_dim: 256
       num_class: 7
       num_layers: 2
       drop_rate: 0
-      activation: !import_get
+      activation: !import_call
         key: 'tensorlayerx.nn.ReLU'
+        init: {}
     special_args:
       aggregator_type: 'gcn'
-    src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.npz']
+    src_ckpt: !join ['./resource/ckpt/', *teacher_name, '-', *dataset_name, '-teacher_model.npz']
     # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
 
   student_model:
-    key: 'MLP'
+    key: &student_name 'MLP'
     common_args:
       feature_dim: 1433
       hidden_dim: 256
       num_class: 7
       num_layers: 2
       drop_rate: 0.6
-      activation: !import_get
+      activation: !import_call
         key: 'tensorlayerx.nn.ReLU'
+        init: {}
     # src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']
-    # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']
+    dst_ckpt: !join ['./resource/ckpt/', *student_name, '-', *dataset_name, '-student_model.npz']
 
 train:
   log_freq: 10
@@ -86,3 +88,55 @@ train:
     key: 'KD_Loss'
     kwargs:
       lambad: 0.1
+
+
+train_teacher:
+    log_freq: 10
+    num_epochs: 182
+    use_dataloader: False
+    # sampler: 'NeighborSampler'
+    #     edge_index: *dataset.edge_index
+    #     node_idx: [0, 8, 45, 33]
+    #     sample_list: [2, 8]
+    #     batch_size: 2048
+    #     shuffle: True
+    #     num_workers: 0
+    train_data_loader:
+      split: 'train'
+      kwargs:
+        batch_size: 128
+        shuffle: False
+    test_data_loader:
+      split: 'test'
+      kwargs:
+        batch_size: 128
+        shuffle: False
+    val_data_loader:
+      split: 'val'
+      kwargs:
+        batch_size: 128
+        shuffle: False
+    model:
+      forward_proc: 'forward_all'
+      # forward_proc: 'forward_batch_only'
+    teacher:
+      forward_proc: 'forward_all'
+      requires_grad: False
+    student:
+      forward_proc: 'forward_all'
+      requires_grad: True
+    optimizer:
+      key: 'Adam'
+      kwargs:
+        lr: 0.01
+        weight_decay: 0.0005
+    scheduler:
+      key: 'MultiStepDecay'
+      kwargs:
+        # learning_rate: 0.01
+        milestones: [91, 136]
+        gamma: 0.1
+    criterion:
+      key: 'CrossEntropy'
+      kwargs: 
+        # lambad: 0.1
