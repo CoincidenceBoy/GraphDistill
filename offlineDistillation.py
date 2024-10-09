@@ -3,7 +3,7 @@ import os
 
 from distill.common.main_util import load_ckpt
 
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 os.environ['TL_BACKEND'] = 'torch'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 # 0:Output all; 1:Filter out INFO; 2:Filter out INFO and WARNING; 3:Filter out INFO, WARNING, and ERROR
@@ -72,7 +72,7 @@ def train(teacher_model, student_model, config, args):
     if distill_type == 'OfflineDistillation':
         train_config = config['train_teacher']
         training_box = get_training_box(teacher_model, dataset_config, train_config)
-        
+
         data = training_box.data
         data['val_idx'] = training_box.val_data
         data['test_idx'] = training_box.test_data
