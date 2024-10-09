@@ -1,1 +1,1 @@
-from . import gcn
+from . import FreeKDAgent

@@ -21,7 +21,7 @@ def get_model_logits(net, data):
     elif "MLP" in net.__class__.__name__ :
         logits = net(data['x'])
     else:
-        raise ValueError(f"Unsupported network class: {self.net.__class__.__name__}")
+        raise ValueError(f"Unsupported network class: {net.__class__.__name__}")
     return logits
 
 class AbstractLoss(WithLoss):
@@ -76,6 +76,28 @@ class GLNNLoss(WithLoss):
         kl_div = tlx.reduce_sum(teacher_probs * (tlx.log(teacher_probs+1e-10) - tlx.log(student_probs+1e-10)), axis=-1)
         loss_t = tlx.reduce_mean(kl_div)
         return self.lambad * loss_l + (1 - self.lambad) * loss_t
+    
+    def __str__(self):
+        desc = 'Loss = '
+        desc += ' + ' + self.backbone.name + "loss:" + self.loss.__name__
+        return desc
+
+
+@register_high_level_loss(key='FreeKD_Loss')
+class FreeKDLoss(WithLoss):
+    def __init__(self, net, loss_fn = 'softmax_cross_entropy_with_logits', mu=0.5, ro=0.5):
+        loss_fn = get_low_level_loss(loss_fn)
+        super(FreeKDLoss, self).__init__(backbone=net, loss_fn=loss_fn)
+        self.net = net
+        self.mu = mu * 0.01
+        self.ro = ro * 0.01
+
+    def forward(self, data, y):
+        logits = get_model_logits(self.backbone_network, data)
+        train_logits = tlx.gather(logits, data['train_idx'])
+        train_y = tlx.gather(data['y'], data['train_idx'])
+        loss = self._loss_fn(train_logits, train_y)
+        return loss
     
     def __str__(self):
         desc = 'Loss = '

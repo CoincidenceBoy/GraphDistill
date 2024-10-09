@@ -70,21 +70,18 @@ def train(teacher_model, student_model, config, args):
     distill_type = config['type']
     teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', './resource/ckpt/default-teacher_model.npz')
     if distill_type == 'OfflineDistillation':
+        train_config = config['train_teacher']
+        training_box = get_training_box(teacher_model, dataset_config, train_config)
+        
+        data = training_box.data
+        data['val_idx'] = training_box.val_data
+        data['test_idx'] = training_box.test_data
+        data['train_idx'] = training_box.train_data
         if not os.path.isfile(teacher_model_ckpt_path):
-            config['models']['teacher_model']['src_ckpt'] = osp.join('./', 'resource', 'ckpt', dataset_config['init']['kwargs']['name'] + '-teacher_model.npz')
-            teacher_dst_ckpt_file_path = config['models']['teacher_model']['src_ckpt']
-            train_config = config['train_teacher']
-            training_box = get_training_box(teacher_model, dataset_config, train_config)
             best_val_acc = 0.0
 
             log_freq = train_config['log_freq']
-            data = training_box.data
-            # t_idx = tlx.concat([training_box.train_data, training_box.test_data, training_box.val_data], axis=0)
-            # data['t_idx'] = t_idx
-            data['val_idx'] = training_box.val_data
-            data['test_idx'] = training_box.test_data
-            data['train_idx'] = training_box.train_data
-
+           
             model = training_box.model
             
             for epoch in range(args.start_epoch, training_box.num_epochs):
@@ -98,15 +95,16 @@ def train(teacher_model, student_model, config, args):
                 logger.info('Epoch: {:0>3d}     train loss: {:.4f}   val acc: {:.4f}'.format(epoch, train_loss, val_acc))
                 if val_acc > best_val_acc:
                     logger.info('Best accuracy: {:.4f} -> {:.4f}'.format(best_val_acc, val_acc))
-                    logger.info('Updating ckpt at {}'.format(teacher_dst_ckpt_file_path))
+                    logger.info('Updating ckpt at {}'.format(teacher_model_ckpt_path))
                     best_val_acc = val_acc
                     # student_model.save_weights("./"+student_model.name+".npz", format='npz_dict')
-                    teacher_model.save_weights(teacher_dst_ckpt_file_path, format='npz_dict')
-                    teacher_model_ckpt_path = teacher_dst_ckpt_file_path
+                    teacher_model.save_weights(teacher_model_ckpt_path, format='npz_dict')
+                    teacher_model_ckpt_path = teacher_model_ckpt_path
             # teacher_model.load_weights(config['models']['teacher_model']['src_ckpt'], format='npz_dict')
+    else :
+        raise Exception("expect distillation type OfflineDistillation but get {}".format(distill_type))
 
-    
-    teacher_model.load_weights(teacher_dst_ckpt_file_path, format='npz_dict')
+    teacher_model.load_weights(teacher_model_ckpt_path, format='npz_dict')
 
     logits = get_model_logits(teacher_model, data)
     test_logits = tlx.gather(logits, data['test_idx'])
@@ -197,7 +195,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
     parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
-    # parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
     parser.add_argument('--epoch', default=100, type=int, metavar='N', help='num of epoch')

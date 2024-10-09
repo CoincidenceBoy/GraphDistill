@@ -71,8 +71,6 @@ def train(teacher_model, student_model, config, args):
     teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', './resource/ckpt/default-teacher_model.npz')
     if distill_type == 'SelfDistillation':
         if not os.path.isfile(teacher_model_ckpt_path):
-            config['models']['teacher_model']['src_ckpt'] = osp.join('./', 'resource', 'ckpt', dataset_config['init']['kwargs']['name'] + '-teacher_model.npz')
-            teacher_dst_ckpt_file_path = config['models']['teacher_model']['src_ckpt']
             train_config = config['train_teacher']
             training_box = get_training_box(teacher_model, dataset_config, train_config)
             best_val_acc = 0.0
@@ -98,15 +96,16 @@ def train(teacher_model, student_model, config, args):
                 logger.info('Epoch: {:0>3d}     train loss: {:.4f}   val acc: {:.4f}'.format(epoch, train_loss, val_acc))
                 if val_acc > best_val_acc:
                     logger.info('Best accuracy: {:.4f} -> {:.4f}'.format(best_val_acc, val_acc))
-                    logger.info('Updating ckpt at {}'.format(teacher_dst_ckpt_file_path))
+                    logger.info('Updating ckpt at {}'.format(teacher_model_ckpt_path))
                     best_val_acc = val_acc
                     # student_model.save_weights("./"+student_model.name+".npz", format='npz_dict')
-                    teacher_model.save_weights(teacher_dst_ckpt_file_path, format='npz_dict')
-                    teacher_model_ckpt_path = teacher_dst_ckpt_file_path
+                    teacher_model.save_weights(teacher_model_ckpt_path, format='npz_dict')
+                    teacher_model_ckpt_path = teacher_model_ckpt_path
             # teacher_model.load_weights(config['models']['teacher_model']['src_ckpt'], format='npz_dict')
-
+    else :
+        raise Exception("expect distillation type SelfDistillation but get {}".format(distill_type))
     
-    teacher_model.load_weights(teacher_dst_ckpt_file_path, format='npz_dict')
+    teacher_model.load_weights(teacher_model_ckpt_path, format='npz_dict')
 
     logits = get_model_logits(teacher_model, data)
     test_logits = tlx.gather(logits, data['test_idx'])
@@ -196,8 +195,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
-    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
-    # parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
+    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/freeKD.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
     parser.add_argument('--epoch', default=100, type=int, metavar='N', help='num of epoch')
