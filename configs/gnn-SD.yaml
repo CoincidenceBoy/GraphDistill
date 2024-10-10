@@ -1,0 +1,59 @@
+type:
+  "SelfDistillation"
+dataset:
+  key: 'Planetoid'
+  init:
+    kwargs:
+      name: &dataset_name 'cora'
+      root: &root_dir !join ['./resource/dataset/', *dataset_name]
+
+models:
+  student_model:
+    key: &student_name 'GATModel'
+    common_args:
+      feature_dim: 1433
+      hidden_dim: 16
+      num_class: 7
+      num_layers: 4
+      drop_rate: 0.1
+      activation: !import_call
+        key: 'tensorlayerx.nn.ReLU'
+        init: {}
+    special_args:
+      heads: 8
+    # src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']
+    dst_ckpt: !join ['./resource/ckpt/', *student_name, '-', *dataset_name, '-student_model.npz']
+
+train:
+  log_freq: 10
+  num_epochs: 200
+  use_dataloader: False
+  model:
+    forward_proc: 'forward_all'
+    # forward_proc: 'forward_batch_only'
+  teacher:
+    forward_proc: 'forward_all'
+    requires_grad: False
+  student:
+    forward_proc: 'forward_all'
+    requires_grad: True
+  optimizer:
+    key: 'Adam'
+    kwargs:
+      lr: 0.005
+      weight_decay: 0.0005
+  scheduler:
+    key: 'MultiStepDecay'
+    kwargs:
+      milestones: [91, 136]
+      gamma: 0.1
+  criterion:
+    key: 'SD_Loss'
+    kwargs: 
+      alpha: 0.001
+      beta: 0.001
+      gamma: 0.01
+      
+      
+
+

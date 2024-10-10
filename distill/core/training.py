@@ -184,9 +184,9 @@ class TrainingBox(object):
         loss = self.criterion(data, targets)
         return loss
     
-    def train(self, data, targets, **kwargs):
+    def train(self, data, targets, *args, **kwargs):
         self.model.set_train()
-        train_loss = self.train_one_step(data, targets)
+        train_loss = self.train_one_step(data, targets, *args, **kwargs)
 
         return train_loss
 

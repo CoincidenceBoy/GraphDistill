@@ -68,7 +68,7 @@ def train(teacher_model, student_model, config, args):
     student_model_config = models_config.get('student_model', None)
 
     distill_type = config['type']
-    teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', './resource/ckpt/default-teacher_model.npz')
+    teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', './resource/ckpt/default-' + config['models']['teacher_model']['key'] + '.npz')
     if distill_type == 'OnlineDistillation':
         train_model1_config = config['train_teacher']
         training_box1 = get_training_box(teacher_model, dataset_config, train_model1_config)

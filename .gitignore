@@ -18,3 +18,5 @@ __pycache__/
 
 # 忽略特定的文件路径
 resource/*
+
+data/*
