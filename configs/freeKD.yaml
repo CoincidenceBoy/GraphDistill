@@ -5,7 +5,7 @@ dataset:
   init:
     kwargs:
       name: &dataset_name 'cora'
-      root: &root_dir !join ['./resource/dataset/', *dataset_name]
+      root: &root_dir !join ['./resource/dataset/']
 
 models:
   teacher_model:

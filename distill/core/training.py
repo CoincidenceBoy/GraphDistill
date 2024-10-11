@@ -55,6 +55,8 @@ class TrainingBox(object):
         dataset = self.dataset_dict
         dataset = get_dataset(dataset['key'], **dataset['init']['kwargs'])
         graph = dataset[0]
+        logger.info(dataset)
+        logger.info(graph)
         data.update(extract_dataset_info(dataset))
         data.update(extract_dataset_info(graph))
         
@@ -67,7 +69,7 @@ class TrainingBox(object):
         criterion_config['kwargs']['net'] = self.model
         # criterion_config['net'] = self.model
         self.criterion = get_high_level_loss(criterion_config)
-        logger.info(self.criterion)
+        # logger.info(self.criterion)
         # self.extract_model_loss = get_func2extract_model_output(criterion_config.get('func2extract_model_loss', None))
 
     def setup_model(self, model_config):

@@ -4,16 +4,16 @@ dataset:
   key: 'Planetoid'
   init:
     kwargs:
-      name: &dataset_name 'cora'
-      root: &root_dir !join ['./resource/dataset/', *dataset_name]
+      name: &dataset_name 'CiteSeer'
+      root: &root_dir !join ['./resource/dataset']
 
 models:
   student_model:
     key: &student_name 'GATModel'
     common_args:
-      feature_dim: 1433
+      # feature_dim: 1433
       hidden_dim: 16
-      num_class: 7
+      # num_class: 7
       num_layers: 4
       drop_rate: 0.1
       activation: !import_call

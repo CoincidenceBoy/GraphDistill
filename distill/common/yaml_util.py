@@ -184,5 +184,48 @@ def load_yaml_file(yaml_file_path, custom_mode=True):
         yaml.add_constructor('!getattr', yaml_getattr, Loader=yaml.FullLoader)
         yaml.add_constructor('!setattr', yaml_getattr, Loader=yaml.FullLoader)
         yaml.add_constructor('!access_by_index_or_key', yaml_access_by_index_or_key, Loader=yaml.FullLoader)
+    yaml_dict = {}
     with open(yaml_file_path, 'r') as fp:
-        return yaml.load(fp, Loader=yaml.FullLoader)
+        yaml_dict = yaml.load(fp, Loader=yaml.FullLoader)
+        return update_dataset_yaml(yaml_dict, yaml_dict.get('dataset', {}).get('init', {}).get('kwargs', {}).get('name', 'cora'))
+    
+
+def update_dataset_yaml(yaml_dict, dataset_name = 'cora'):
+    dataset_name = dataset_name.lower()
+    dataset_info_map = {
+        'cora': {
+            'nodes': 2708,
+            'edges': 10556,
+            'feature_dim': 1433,
+            'num_class': 7
+        },
+        'citeseer': {
+            'nodes': 3327,
+            'edges': 9104,
+            'feature_dim': 3703,
+            'num_class': 6
+        },
+        'pubmed': {
+            'nodes': 19717,
+            'edges': 88648,
+            'feature_dim': 500,
+            'num_class': 3
+        }
+    }
+    if dataset_name not in dataset_info_map:
+        raise ValueError(f"Unexpected Dataset '{dataset_name}', please check in '{dataset_info_map}")
+
+    if 'teacher_model' in yaml_dict.get('models', {}):
+        teacher_model = yaml_dict['models']['teacher_model']
+        if 'common_args' in teacher_model:
+            teacher_model['common_args']['feature_dim'] = dataset_info_map[dataset_name]['feature_dim']
+            teacher_model['common_args']['num_class'] = dataset_info_map[dataset_name]['num_class']
+
+    if 'student_model' in yaml_dict.get('models', {}):
+        student_model = yaml_dict['models']['student_model']
+        if 'common_args' in student_model:
+            student_model['common_args']['feature_dim'] = dataset_info_map[dataset_name]['feature_dim']
+            student_model['common_args']['num_class'] = dataset_info_map[dataset_name]['num_class']
+
+    return yaml_dict
+
