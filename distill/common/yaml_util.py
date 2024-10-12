@@ -162,7 +162,27 @@ def yaml_access_by_index_or_key(loader, node):
     return data[index_or_key]
 
 
-def load_yaml_file(yaml_file_path, custom_mode=True):
+def update_dict(d, keys, value):
+    """
+    递归更新字典中嵌套的值。
+    
+    :param d: 要更新的字典。
+    :type d: dict
+    :param keys: 表示路径的列表，路径用点分隔（例如 'train.optimizer.kwargs.lr'）。
+    :type keys: list
+    :param value: 要设置的新值。
+    :type value: any
+    """
+    key = keys[0]
+    if len(keys) == 1:
+        d[key] = value
+    else:
+        if key not in d:
+            d[key] = {}
+        update_dict(d[key], keys[1:], value)
+
+
+def load_yaml_file(yaml_file_path, custom_mode=True, param_updates=None):
     """
     Loads a yaml file optionally with convenient constructors.
 
@@ -187,6 +207,13 @@ def load_yaml_file(yaml_file_path, custom_mode=True):
     yaml_dict = {}
     with open(yaml_file_path, 'r') as fp:
         yaml_dict = yaml.load(fp, Loader=yaml.FullLoader)
+
+        # 如果提供了超参数更新，则动态更新配置
+        if param_updates:
+            for param_path, value in param_updates.items():
+                keys = param_path.split('.')
+                update_dict(yaml_dict, keys, value)
+
         return update_dataset_yaml(yaml_dict, yaml_dict.get('dataset', {}).get('init', {}).get('kwargs', {}).get('name', 'cora'))
     
 
