@@ -23,6 +23,7 @@ from distill.core.distillation import get_distillation_box
 import time
 from distill.losses.registry import get_high_level_loss
 import os.path as osp
+from itertools import product
 
 
 logger = def_logger.getChild(__name__)
@@ -170,10 +171,11 @@ def train(teacher_model, student_model, config, args):
 
 
 
-def main(args):
+def main(args, param_grid = None):
     set_basic_log_config()
     logger.info(args)
-    config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)))
+
+    config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)), param_updates=param_grid)
     # logger.info(config)
 
     models_config = config['models']
@@ -196,7 +198,8 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
-    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
+    # parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
+    parser.add_argument('--config', default="/home/zgy/review/temp/distill/configs/glnn.yaml", help='yaml file path')
     # parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
@@ -205,4 +208,20 @@ if __name__ == '__main__':
     parser.add_argument('--test_only', action='store_true', help='only test the models')
 
     args = parser.parse_args()
+
+    param_grid = {
+        'train.optimizer.kwargs.lr': [0.01, 0.001, 0.0001],
+        'models.student_model.common_args.hidden_dim': [64, 128, 256],
+        'models.student_model.common_args.drop_rate': [0.0, 0.3, 0.6]
+    }
+
+    param_names = list(param_grid.keys())
+    param_values = list(param_grid.values())
+    all_combinations = product(*param_values)
+
+    # for param_combination in all_combinations:
+    #     param_dict = dict(zip(param_names, param_combination))
+    #     print(f"正在测试参数组合: {param_dict}")
+    #     main(args, param_dict)
+
     main(args)
