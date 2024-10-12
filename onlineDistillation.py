@@ -23,6 +23,8 @@ from distill.core.distillation import get_distillation_box
 import time
 from distill.losses.registry import get_high_level_loss
 import os.path as osp
+from itertools import product
+import numpy as np
 
 
 logger = def_logger.getChild(__name__)
@@ -155,12 +157,13 @@ def train(teacher_model, student_model, config, args):
                         epoch, model2.__class__.__name__, train_loss2, val_acc_model2))
 
         print(f"Final Best Model1 Test Accuracy: {best_acc_model1:.4f}, Final Best Model2 Test Accuracy: {best_acc_model2:.4f}")
+        return best_acc_model1, best_acc_model2
     else :
         raise Exception("expect distillation type OfflineDistillation but get {}".format(distill_type))
 
 
 
-def main(args):
+def main(args, param_dict):
     set_basic_log_config()
     logger.info(args)
     config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)))
@@ -180,7 +183,8 @@ def main(args):
     # dataset_config = config['dataset']
 
     if not args.test_only:
-        train(teacher_model, student_model, config, args)
+        test_acc, test_acc2 = train(teacher_model, student_model, config, args)
+        return test_acc, test_acc2
 
 
 if __name__ == '__main__':
@@ -194,4 +198,42 @@ if __name__ == '__main__':
     parser.add_argument('--test_only', action='store_true', help='only test the models')
 
     args = parser.parse_args()
-    main(args)
+    param_grid = {
+        # 'train.optimizer.kwargs.lr': [0.01, 0.001, 0.0001],
+        'train.optimizer.kwargs.lr': [0.0001],
+        'models.student_model.common_args.hidden_dim': [256],
+        'models.student_model.common_args.drop_rate': [0.0]
+    }
+    iter = 2
+
+    param_names = list(param_grid.keys())
+    param_values = list(param_grid.values())
+    all_combinations = product(*param_values)
+
+    results = []
+    for param_combination in all_combinations:
+        test_acc_list = []
+        test_acc2_list = []
+        param_dict = dict(zip(param_names, param_combination))
+        for i in range(iter):
+            test_acc, test_acc2 = main(args, param_dict)
+            test_acc_list.append(test_acc)
+            test_acc2_list.append(test_acc2)
+
+        results.append({
+            "param_dict": param_dict,
+            "test_acc_mean": np.mean(test_acc_list),
+            "test_acc_std": np.std(test_acc_list),
+            "test_acc2_mean": np.mean(test_acc2_list),
+            "test_acc2_std": np.std(test_acc2_list)
+        })
+        # print(f"参数组合: {param_dict} 测试结果: {np.mean(test_acc_list)}±{np.std(test_acc_list)} --> {np.mean(test_acc2_list)}±{np.std(test_acc2_list)}")
+
+    print("\n==== 所有参数组合的测试结果 ====")
+    for result in results:
+        param_dict = result['param_dict']
+        print(f"参数组合: {param_dict} 测试结果: "
+              f"{result['test_acc_mean']:.4f}±{result['test_acc_std']:.4f} "
+              f"--> {result['test_acc2_mean']:.4f}±{result['test_acc2_std']:.4f}")
+
+    # main(args)

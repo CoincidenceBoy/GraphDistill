@@ -24,6 +24,8 @@ from distill.core.distillation import get_distillation_box
 import time
 from distill.losses.registry import get_high_level_loss
 import os.path as osp
+from itertools import product
+import numpy as np
 
 
 logger = def_logger.getChild(__name__)
@@ -112,10 +114,12 @@ def train(model, config, args):
 
     logger.info('SelfDistill Model Test acc: {:.4f}'.format(test_acc))
 
+    return test_acc
 
 
 
-def main(args):
+
+def main(args, param_dict):
     set_basic_log_config()
     logger.info(args)
     config = yaml_util.load_yaml_file(os.path.abspath(os.path.expanduser(args.config)))
@@ -126,7 +130,8 @@ def main(args):
     student_model = load_model(student_model_config) if student_model_config is not None else None
 
     if not args.test_only:
-        train(student_model, config, args)
+        test_acc = train(student_model, config, args)
+        return test_acc
 
 
 if __name__ == '__main__':
@@ -140,4 +145,38 @@ if __name__ == '__main__':
     parser.add_argument('--test_only', action='store_true', help='only test the models')
 
     args = parser.parse_args()
-    main(args)
+
+    param_grid = {
+        # 'train.optimizer.kwargs.lr': [0.01, 0.001, 0.0001],
+        'train.optimizer.kwargs.lr': [0.0001],
+        'models.student_model.common_args.hidden_dim': [256],
+        'models.student_model.common_args.drop_rate': [0.0]
+    }
+    iter = 2
+
+    param_names = list(param_grid.keys())
+    param_values = list(param_grid.values())
+    all_combinations = product(*param_values)
+
+    results = []
+    for param_combination in all_combinations:
+        test_acc_list = []
+        param_dict = dict(zip(param_names, param_combination))
+        for i in range(iter):
+            test_acc = main(args, param_dict)
+            test_acc_list.append(test_acc)
+
+        results.append({
+            "param_dict": param_dict,
+            "test_acc_mean": np.mean(test_acc_list),
+            "test_acc_std": np.std(test_acc_list)
+        })
+        # print(f"参数组合: {param_dict} 测试结果: {np.mean(test_acc_list)}±{np.std(test_acc_list)} --> {np.mean(test_acc2_list)}±{np.std(test_acc2_list)}")
+
+    print("\n==== 所有参数组合的测试结果 ====")
+    for result in results:
+        param_dict = result['param_dict']
+        print(f"参数组合: {param_dict} 测试结果: "
+              f"{result['test_acc_mean']:.4f}±{result['test_acc_std']:.4f}")
+
+    # main(args)
