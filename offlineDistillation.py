@@ -20,13 +20,14 @@ from distill.datasets.registry import get_dataset
 from distill.optim.registry import get_optimizer, get_scheduler
 from distill.core.training import get_training_box
 from distill.core.distillation import get_distillation_box
+from distill.common.main_util import set_seed
 import time
 from distill.losses.registry import get_high_level_loss
 import os.path as osp
 
 
 logger = def_logger.getChild(__name__)
-
+set_seed(42)
 
 def compute_accuracy(logits, y, metrics):
     metrics.update(logits, y)
@@ -134,7 +135,7 @@ def train(teacher_model, student_model, config, args):
     
     for epoch in range(args.start_epoch, training_box.num_epochs):
         # training_box.pre_epoch_process(epoch=epoch)
-        train_loss = training_box.train(data, get_model_logits(teacher_model, data))
+        train_loss = training_box.train(data, get_model_logits(teacher_model, data), student_logits = get_model_logits(student_model, data))
 
         # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
         val_acc = evaluate(student_model, data, log_freq=log_freq, header='Validation:')

@@ -63,7 +63,7 @@ class GLNNLoss(WithLoss):
         self.loss = loss_fn
         self.lambad = lambad
 
-    def forward(self, data, teacher_logits):
+    def forward(self, data, teacher_logits, *args, **kwargs):
         student_logits = get_model_logits(self.backbone_network, data)
         train_y = tlx.gather(data['y'], data['t_idx'])
         train_teacher_logits = tlx.gather(teacher_logits, data['t_idx'])
@@ -95,7 +95,7 @@ class FreeKDLoss(WithLoss):
         self.mu = mu * 0.01
         self.ro = ro * 0.01
 
-    def forward(self, data, y):
+    def forward(self, data, y, *args, **kwargs):
         logits = get_model_logits(self.backbone_network, data)
         train_logits = tlx.gather(logits, data['train_idx'])
         train_y = tlx.gather(data['y'], data['train_idx'])
@@ -155,6 +155,51 @@ class GNNSDLoss(WithLoss):
             model_io_dict['ndr_values'].clear()
 
         return loss
+    
+    def __str__(self):
+        desc = 'Loss = '
+        desc += ' + ' + self.backbone.name + "loss:" + self.loss.__name__
+        return desc
+    
+
+@register_high_level_loss(key='LSP_Loss')
+class LSPLoss(WithLoss):
+    def __init__(self, net, loss_fn = 'softmax_cross_entropy_with_logits', lambad=1):
+        loss_fn = get_low_level_loss(loss_fn)
+        super(LSPLoss, self).__init__(backbone=net, loss_fn=loss_fn)
+        self.net = net
+        self.lambad = lambad
+
+    def forward(self, data, teacher_logits, *args, **kwargs):
+        logits = get_model_logits(self.backbone_network, data)
+        train_logits = tlx.gather(logits, data['train_idx'])
+        train_y = tlx.gather(data['y'], data['train_idx'])
+        loss_ce = self._loss_fn(train_logits, train_y)
+
+        train_teacher_logits = tlx.gather(teacher_logits, data['t_idx'])
+        train_student_logits = tlx.gather(get_model_logits(self.backbone_network, data), data['t_idx'])
+        # loss = self._loss_fn(train_y, train_student_logits, train_teacher_logits, 0)
+        teacher_probs = tlx.softmax(train_teacher_logits)
+        student_probs = tlx.softmax(train_student_logits)
+        # compute KL divergence
+        kl_div = tlx.reduce_sum(teacher_probs * (tlx.log(teacher_probs+1e-10) - tlx.log(student_probs+1e-10)), axis=-1)
+        loss_t = tlx.reduce_mean(kl_div)
+        loss =  loss_ce + 0.5 * loss_t
+
+        loss_lsp = 0.0
+
+        if 'student_logits' in kwargs:
+            student_logits = kwargs['student_logits'] 
+            row, col = data['edge_index']
+
+            # 计算节点嵌入的相似性
+            sim_s = F.normalize(torch.exp(-torch.norm(student_logits[row] - student_logits[col], dim=1, p=2)), dim=0)
+            sim_t = F.normalize(torch.exp(-torch.norm(teacher_logits[row] - teacher_logits[col], dim=1, p=2)), dim=0)
+
+            # 计算 KL 散度
+            loss_lsp = F.kl_div(sim_s.log(), sim_t, reduction='batchmean')
+
+        return loss + self.lambad * loss_lsp
     
     def __str__(self):
         desc = 'Loss = '

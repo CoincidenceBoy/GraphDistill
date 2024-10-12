@@ -25,16 +25,18 @@ models:
     # dst_ckpt: !join ['./resource/ckpt/', *dataset_name, '-teacher_model.pt']
 
   student_model:
-    key: &student_name 'MLP'
+    key: &student_name 'GATModel'
     common_args:
-      feature_dim: 1433
-      hidden_dim: 256
-      num_class: 7
-      num_layers: 2
-      drop_rate: 0.6
+      # feature_dim: 1433
+      hidden_dim: 16
+      # num_class: 7
+      num_layers: 4
+      drop_rate: 0.1
       activation: !import_call
         key: 'tensorlayerx.nn.ReLU'
         init: {}
+    special_args:
+      heads: 8
     # src_ckpt: !join ['./resource/ckpt/', *dataset_name, '-student_model.npz']
     dst_ckpt: !join ['./resource/ckpt/', *student_name, '-', *dataset_name, '-student_model.npz']
 
@@ -85,9 +87,9 @@ train:
       milestones: [91, 136]
       gamma: 0.1
   criterion:
-    key: 'KD_Loss'
+    key: 'LSP_Loss'
     kwargs:
-      lambad: 0.1
+      lambad: 1
 
 
 train_teacher:
@@ -139,4 +141,4 @@ train_teacher:
     criterion:
       key: 'CrossEntropy'
       kwargs: 
-        # lambad: 0.1
+        # lambad: 1
