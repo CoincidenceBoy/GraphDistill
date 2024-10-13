@@ -4,7 +4,7 @@ dataset:
   key: 'Planetoid'
   init:
     kwargs:
-      name: &dataset_name 'CiteSeer'
+      name: &dataset_name 'cora'
       root: &root_dir !join ['./resource/dataset']
 
 models:
@@ -53,7 +53,8 @@ train:
       alpha: 0.001
       beta: 0.001
       gamma: 0.01
-      
-      
 
-
+log_metric:
+  item: ['val_acc', 'loss']
+  save_dir: './test1'
+  file_name: 'training_metrics.png'

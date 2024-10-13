@@ -11,7 +11,7 @@ import torch
 import tensorlayerx as tlx
 
 from distill.common import yaml_util
-from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue
+from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue, plot_metrics
 from distill.modules.registry import get_model
 from distill.core.distillation import DistillationBox
 from distill.losses.high_level import get_model_logits
@@ -69,6 +69,7 @@ def train(teacher_model, student_model, config, args):
     models_config = config['models']
     teacher_model_config = models_config.get('teacher_model', None)
     student_model_config = models_config.get('student_model', None)
+    metric_config = config['log_metric']
 
     distill_type = config['type']
     teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', './resource/ckpt/default-' + config['models']['teacher_model']['key'] + '.npz')
@@ -87,15 +88,26 @@ def train(teacher_model, student_model, config, args):
            
             model = training_box.model
             
+            metric_logger = MetricLogger(delimiter="  ")
+            for item in metric_config['item']:
+                metric_logger.add_meter(item, SmoothedValue(window_size=1, fmt='{value}'))
             for epoch in range(args.start_epoch, training_box.num_epochs):
+                header = 'Epoch: [{}]'.format(epoch)
                 # training_box.pre_epoch_process(epoch=epoch)
-                train_loss = training_box.train(data, get_model_logits(teacher_model, data))
-                # train_loss = training_box.train(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
+                for data in metric_logger.log_every(data, log_freq, header):
+                    train_loss = training_box.train(data, get_model_logits(teacher_model, data))
+                    # train_loss = training_box.train(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
 
-                # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
-                val_acc = evaluate(teacher_model, data, log_freq=log_freq, header='Validation:')
+                    # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
+                    val_acc = evaluate(teacher_model, data, log_freq=log_freq, header='Validation:')
+                    metrics_to_update = {}
+                    for item in metric_config['item']:
+                        if item == 'loss' and 'train_loss' in locals():  # 检查是否需要记录 loss，并且确保 loss 变量存在
+                            metrics_to_update['loss'] = train_loss.item()
+                        if item == 'val_acc' and 'val_acc' in locals():  # 检查是否需要记录 val_acc，并且确保 val_acc 变量存在
+                            metrics_to_update['val_acc'] = val_acc.item()
+                    metric_logger.update(**metrics_to_update)
 
-                logger.info('Epoch: {:0>3d}     train loss: {:.4f}   val acc: {:.4f}'.format(epoch, train_loss, val_acc))
                 if val_acc > best_val_acc:
                     logger.info('Best accuracy: {:.4f} -> {:.4f}'.format(best_val_acc, val_acc))
                     logger.info('Updating ckpt at {}'.format(teacher_model_ckpt_path))
@@ -134,15 +146,27 @@ def train(teacher_model, student_model, config, args):
     data['train_idx'] = training_box.train_data
 
     model = training_box.model
-    
+
+    metric_logger = MetricLogger(delimiter="  ")
+    for item in metric_config['item']:
+        metric_logger.add_meter(item, SmoothedValue(window_size=1, fmt='{value}'))
     for epoch in range(args.start_epoch, training_box.num_epochs):
+        header = 'Epoch: [{}]'.format(epoch)
         # training_box.pre_epoch_process(epoch=epoch)
-        train_loss = training_box.train(data, get_model_logits(teacher_model, data), student_logits = get_model_logits(student_model, data))
+        for data in metric_logger.log_every(data, log_freq, header):
+            train_loss = training_box.train(data, get_model_logits(teacher_model, data), student_logits = get_model_logits(student_model, data))
 
         # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
-        val_acc = evaluate(student_model, data, log_freq=log_freq, header='Validation:')
+            val_acc = evaluate(student_model, data, log_freq=log_freq, header='Validation:')
+            metrics_to_update = {}
+            for item in metric_config['item']:
+                if item == 'loss' and 'train_loss' in locals():  # 检查是否需要记录 loss，并且确保 loss 变量存在
+                    metrics_to_update['loss'] = train_loss.item()
+                if item == 'val_acc' and 'val_acc' in locals():  # 检查是否需要记录 val_acc，并且确保 val_acc 变量存在
+                    metrics_to_update['val_acc'] = val_acc.item()
+            metric_logger.update(**metrics_to_update)
+        metric_logger.record_metrics()
 
-        logger.info('Epoch: {:0>3d}     train loss: {:.4f}   val acc: {:.4f}'.format(epoch, train_loss, val_acc))
         if val_acc > best_val_acc:
             logger.info('Best accuracy: {:.4f} -> {:.4f}'.format(best_val_acc, val_acc))
             logger.info('Updating ckpt at {}'.format(dst_ckpt_file_path))
@@ -151,6 +175,7 @@ def train(teacher_model, student_model, config, args):
             student_model.save_weights(dst_ckpt_file_path, format='npz_dict')
 
         # training_box.post_epoch_process()
+    plot_metrics(metric_logger, save_dir=metric_config['save_dir'], file_name=metric_config['file_name'], show=True)
 
     # if distributed:
     #     dist.barrier()
@@ -200,7 +225,7 @@ def main(args, pram_dict=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
-    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/glnn.yaml", help='yaml file path')
+    parser.add_argument('--config', default="/home/zgy/review/temp/distill/configs/glnn.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
     parser.add_argument('--epoch', default=100, type=int, metavar='N', help='num of epoch')

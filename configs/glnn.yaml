@@ -140,3 +140,7 @@ train_teacher:
       key: 'CrossEntropy'
       kwargs: 
         # lambad: 0.1
+log_metric:
+  item: ['val_acc', 'loss']
+  save_dir: './test1'
+  file_name: 'training_metrics.png'

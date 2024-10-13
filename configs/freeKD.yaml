@@ -98,7 +98,11 @@ train:
     kwargs: 
         mu: 0.5
         ro: 0.5
-      
+log_metric:
+  # item: ['train_loss1', 'train_loss2', 'val_acc_model1', 'val_acc_model2']
+  item: ['val_acc_model1', 'val_acc_model2']
+  save_dir: './test1'
+  file_name: 'training_metrics.png'
       
 
 

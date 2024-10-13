@@ -12,7 +12,7 @@ import torch
 import tensorlayerx as tlx
 
 from distill.common import yaml_util
-from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue
+from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue, plot_metrics
 from distill.modules.registry import get_model
 from distill.core.distillation import DistillationBox
 from distill.losses.high_level import get_model_logits
@@ -65,6 +65,7 @@ def load_model(model_config):
 def train(model, config, args):
 
     distill_type = config['type']
+    metric_config = config['log_metric']
     
     model_ckpt_path = config['models']['student_model'].get('src_ckpt', './resource/ckpt/default-' + config['models']['student_model']['key'] + '.npz')
     if distill_type == 'SelfDistillation':
@@ -85,15 +86,27 @@ def train(model, config, args):
             model = training_box.model
             register_hooks(training_box, data, config['models']['student_model']['common_args']['num_layers'])
             
+            metric_logger = MetricLogger(delimiter="  ")
+            for item in metric_config['item']:
+                metric_logger.add_meter(item, SmoothedValue(window_size=1, fmt='{value}'))
             for epoch in range(args.start_epoch, training_box.num_epochs):
-                # training_box.pre_epoch_process(epoch=epoch)
-                train_loss = training_box.train(data, get_model_logits(model, data), model_io_dict = training_box.model_io_dict)
-                # train_loss = training_box.train(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
+                header = 'Epoch: [{}]'.format(epoch)
+                for data in metric_logger.log_every(data, log_freq, header):
+                    # training_box.pre_epoch_process(epoch=epoch)
+                    train_loss = training_box.train(data, get_model_logits(model, data), model_io_dict = training_box.model_io_dict)
+                    # train_loss = training_box.train(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']))
 
-                # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
-                val_acc = evaluate(model, data, log_freq=log_freq, header='Validation:')
+                    # compute_accuracy(tlx.gather(teacher_model(data['x'], data['edge_index'], data['edge_weight'], data['num_nodes']), data['test_idx']), tlx.gather(data['y'], data['test_idx']), tlx.metrics.Accuracy())
+                    val_acc = evaluate(model, data, log_freq=log_freq, header='Validation:')
+                    metrics_to_update = {}
+                    for item in metric_config['item']:
+                        if item == 'loss' and 'train_loss' in locals():  # 检查是否需要记录 loss，并且确保 loss 变量存在
+                            metrics_to_update['loss'] = train_loss.item()
+                        if item == 'val_acc' and 'val_acc' in locals():  # 检查是否需要记录 val_acc，并且确保 val_acc 变量存在
+                            metrics_to_update['val_acc'] = val_acc.item()
+                    metric_logger.update(**metrics_to_update)
 
-                logger.info('Epoch: {:0>3d}     train loss: {:.4f}   val acc: {:.4f}'.format(epoch, train_loss, val_acc))
+                metric_logger.record_metrics()
                 if val_acc > best_val_acc:
                     logger.info('Best accuracy: {:.4f} -> {:.4f}'.format(best_val_acc, val_acc))
                     logger.info('Updating ckpt at {}'.format(model_ckpt_path))
@@ -101,6 +114,7 @@ def train(model, config, args):
                     # student_model.save_weights("./"+student_model.name+".npz", format='npz_dict')
                     model.save_weights(model_ckpt_path, format='npz_dict')
                     model_ckpt_path = model_ckpt_path
+            plot_metrics(metric_logger, save_dir=metric_config['save_dir'], file_name=metric_config['file_name'], show=True)
             # teacher_model.load_weights(config['models']['teacher_model']['src_ckpt'], format='npz_dict')
     else :
         raise Exception("expect distillation type OfflineDistillation but get {}".format(distill_type))
@@ -137,7 +151,7 @@ def main(args, param_dict):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
-    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/gnn-SD.yaml", help='yaml file path')
+    parser.add_argument('--config', default="/home/zgy/review/temp/distill/configs/gnn-SD.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
     parser.add_argument('--epoch', default=100, type=int, metavar='N', help='num of epoch')

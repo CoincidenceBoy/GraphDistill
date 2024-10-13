@@ -11,7 +11,7 @@ import torch
 import tensorlayerx as tlx
 
 from distill.common import yaml_util
-from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue
+from distill.misc.log import set_basic_log_config, MetricLogger, SmoothedValue, plot_metrics
 from distill.modules.registry import get_model
 from distill.core.distillation import DistillationBox
 from distill.losses.high_level import get_model_logits
@@ -68,6 +68,7 @@ def train(teacher_model, student_model, config, args):
     models_config = config['models']
     teacher_model_config = models_config.get('teacher_model', None)
     student_model_config = models_config.get('student_model', None)
+    metric_config = config['log_metric']
 
     distill_type = config['type']
     teacher_model_ckpt_path = config['models']['teacher_model'].get('src_ckpt', './resource/ckpt/default-' + config['models']['teacher_model']['key'] + '.npz')
@@ -88,74 +89,95 @@ def train(teacher_model, student_model, config, args):
         best_acc_model1 = 0.0
         best_acc_model2 = 0.0
 
+        metric_logger = MetricLogger(delimiter="  ")
+        for item in metric_config['item']:
+            metric_logger.add_meter(item, SmoothedValue(window_size=1, fmt='{value}'))
+
         for epoch in range(args.start_epoch, max(training_box1.num_epochs, 200)):
+            header = 'Epoch: [{}]'.format(epoch)
+            log_freq=10
+            for data in metric_logger.log_every(data, log_freq, header):
 
-            train_loss1 = training_box1.train(data, get_model_logits(teacher_model, data))
-            train_loss2 = training_box2.train(data, get_model_logits(student_model, data))
+                train_loss1 = training_box1.train(data, get_model_logits(teacher_model, data))
+                train_loss2 = training_box2.train(data, get_model_logits(student_model, data))
 
-            # ReinforceAgent 决定知识蒸馏方向
-            if training_box1.criterion.__class__.__name__ == 'FreeKDLoss':
-                output_model1 = get_model_logits(teacher_model, data)
-                output_model2 = get_model_logits(student_model, data)
+                # ReinforceAgent 决定知识蒸馏方向
+                if training_box1.criterion.__class__.__name__ == 'FreeKDLoss':
+                    output_model1 = get_model_logits(teacher_model, data)
+                    output_model2 = get_model_logits(student_model, data)
 
-                from distill.modules.FreeKDAgent import FreeKDAgent
-                agent = FreeKDAgent(input_dim=config['models']['teacher_model']['common_args']['num_class'] * 2, hidden_dim=32)
-                state = torch.cat([output_model1.detach(), output_model2.detach()], dim=1)
-                node_action_probs, structure_action_probs = agent(state)
-                node_actions = torch.multinomial(node_action_probs, 1).squeeze()
-                structure_actions = torch.multinomial(structure_action_probs, 1).squeeze()
+                    from distill.modules.FreeKDAgent import FreeKDAgent
+                    agent = FreeKDAgent(input_dim=config['models']['teacher_model']['common_args']['num_class'] * 2, hidden_dim=32)
+                    state = torch.cat([output_model1.detach(), output_model2.detach()], dim=1)
+                    node_action_probs, structure_action_probs = agent(state)
+                    node_actions = torch.multinomial(node_action_probs, 1).squeeze()
+                    structure_actions = torch.multinomial(structure_action_probs, 1).squeeze()
 
-                # 节点级别蒸馏损失
-                distillation_loss_gcn = 0
-                distillation_loss_gat = 0
-                T = 2.0  # 温度
-                import torch.nn.functional as F
-                for i in range(len(node_actions)):
-                    if node_actions[i] == 0:  # Model1 -> Model2
-                        distillation_loss_gcn += F.kl_div(F.log_softmax(output_model2[i] / T, dim=0),
-                                                          F.softmax(output_model1.detach()[i] / T, dim=0),
-                                                          reduction='batchmean') * (T * T)
-                    else:  # Model2 -> Model1
-                        distillation_loss_gat += F.kl_div(F.log_softmax(output_model1[i] / T, dim=0),
-                                                          F.softmax(output_model2.detach()[i] / T, dim=0),
-                                                          reduction='batchmean') * (T * T)
-
-                # 结构级别蒸馏损失
-                structure_loss_gcn = 0
-                structure_loss_gat = 0
-
-                # 计算结构级别蒸馏损失
-                for i, action in enumerate(structure_actions):
-                    neighbors = data['edge_index'][1][data['edge_index'][0] == i]
-                    if action == 1:  # 传播该节点的局部结构
+                    # 节点级别蒸馏损失
+                    distillation_loss_gcn = 0
+                    distillation_loss_gat = 0
+                    T = 2.0  # 温度
+                    import torch.nn.functional as F
+                    for i in range(len(node_actions)):
                         if node_actions[i] == 0:  # Model1 -> Model2
-                            structure_loss_gcn += F.kl_div(F.log_softmax(output_model2[neighbors] / T, dim=-1),
-                                                           F.softmax(output_model1.detach()[neighbors] / T, dim=-1),
-                                                           reduction='batchmean') * (T * T)
+                            distillation_loss_gcn += F.kl_div(F.log_softmax(output_model2[i] / T, dim=0),
+                                                            F.softmax(output_model1.detach()[i] / T, dim=0),
+                                                            reduction='batchmean') * (T * T)
                         else:  # Model2 -> Model1
-                            structure_loss_gat += F.kl_div(F.log_softmax(output_model1[neighbors] / T, dim=-1),
-                                                           F.softmax(output_model2.detach()[neighbors] / T, dim=-1),
-                                                           reduction='batchmean') * (T * T)
+                            distillation_loss_gat += F.kl_div(F.log_softmax(output_model1[i] / T, dim=0),
+                                                            F.softmax(output_model2.detach()[i] / T, dim=0),
+                                                            reduction='batchmean') * (T * T)
 
-                train_loss1 += training_box1.criterion.mu * distillation_loss_gcn.detach().cpu().numpy() + training_box1.criterion.ro * structure_loss_gcn.detach().cpu().numpy()
-                train_loss2 += training_box1.criterion.mu * distillation_loss_gat.detach().cpu().numpy() + training_box1.criterion.ro * structure_loss_gat.detach().cpu().numpy()
+                    # 结构级别蒸馏损失
+                    structure_loss_gcn = 0
+                    structure_loss_gat = 0
 
-            val_acc_model1 = evaluate(model1, data)
-            val_acc_model2 = evaluate(model2, data)
+                    # 计算结构级别蒸馏损失
+                    for i, action in enumerate(structure_actions):
+                        neighbors = data['edge_index'][1][data['edge_index'][0] == i]
+                        if action == 1:  # 传播该节点的局部结构
+                            if node_actions[i] == 0:  # Model1 -> Model2
+                                structure_loss_gcn += F.kl_div(F.log_softmax(output_model2[neighbors] / T, dim=-1),
+                                                            F.softmax(output_model1.detach()[neighbors] / T, dim=-1),
+                                                            reduction='batchmean') * (T * T)
+                            else:  # Model2 -> Model1
+                                structure_loss_gat += F.kl_div(F.log_softmax(output_model1[neighbors] / T, dim=-1),
+                                                            F.softmax(output_model2.detach()[neighbors] / T, dim=-1),
+                                                            reduction='batchmean') * (T * T)
 
-            if val_acc_model1 > best_acc_model1:
-                best_acc_model1 = val_acc_model1
+                    train_loss1 += training_box1.criterion.mu * distillation_loss_gcn.detach().cpu().numpy() + training_box1.criterion.ro * structure_loss_gcn.detach().cpu().numpy()
+                    train_loss2 += training_box1.criterion.mu * distillation_loss_gat.detach().cpu().numpy() + training_box1.criterion.ro * structure_loss_gat.detach().cpu().numpy()
 
-            if val_acc_model2 > best_acc_model2:
-                best_acc_model2 = val_acc_model2
+                val_acc_model1 = evaluate(model1, data)
+                val_acc_model2 = evaluate(model2, data)
 
-            if epoch % 10 == 0:
-                logger.info(
-                    'Epoch: {}   Model1:{}  train loss: {:.4f}   val acc: {:.4f}'.format(
-                        epoch, model1.__class__.__name__, train_loss1, val_acc_model1) + '\n' +
-                    'Epoch: {}   Model2:{}  train loss: {:.4f}   val acc: {:.4f}'.format(
-                        epoch, model2.__class__.__name__, train_loss2, val_acc_model2))
+                metrics_to_update = {}
+                for item in metric_config['item']:
+                    if item == 'train_loss1' and 'train_loss1' in locals():  # 检查是否需要记录 loss，并且确保 loss 变量存在
+                        metrics_to_update['train_loss1'] = train_loss1.item()
+                    if item == 'train_loss2' and 'train_loss2' in locals():  # 检查是否需要记录 loss，并且确保 loss 变量存在
+                        metrics_to_update['train_loss2'] = train_loss2.item()
+                    if item == 'val_acc_model1' and 'val_acc_model1' in locals():  # 检查是否需要记录 val_acc，并且确保 val_acc 变量存在
+                        metrics_to_update['val_acc_model1'] = val_acc_model1.item()
+                    if item == 'val_acc_model2' and 'val_acc_model2' in locals():  # 检查是否需要记录 val_acc，并且确保 val_acc 变量存在
+                        metrics_to_update['val_acc_model2'] = val_acc_model2.item()
+                metric_logger.update(**metrics_to_update)
 
+                if val_acc_model1 > best_acc_model1:
+                    best_acc_model1 = val_acc_model1
+
+                if val_acc_model2 > best_acc_model2:
+                    best_acc_model2 = val_acc_model2
+
+                if epoch % 10 == 0:
+                    logger.info(
+                        'Epoch: {}   Model1:{}  train loss: {:.4f}   val acc: {:.4f}'.format(
+                            epoch, model1.__class__.__name__, train_loss1, val_acc_model1) + '\n' +
+                        'Epoch: {}   Model2:{}  train loss: {:.4f}   val acc: {:.4f}'.format(
+                            epoch, model2.__class__.__name__, train_loss2, val_acc_model2))
+            metric_logger.record_metrics()
+        plot_metrics(metric_logger, save_dir=metric_config['save_dir'], file_name=metric_config['file_name'], show=True)
+        
         print(f"Final Best Model1 Test Accuracy: {best_acc_model1:.4f}, Final Best Model2 Test Accuracy: {best_acc_model2:.4f}")
         return best_acc_model1, best_acc_model2
     else :
@@ -190,7 +212,7 @@ def main(args, param_dict):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Knowledge distillation for Graph Neural Networks')
     # parser.add_argument('--config', required=True, help='yaml file path') test_yaml glnn
-    parser.add_argument('--config', default="/home/zgy/review/yds/distill/configs/freeKD.yaml", help='yaml file path')
+    parser.add_argument('--config', default="/home/zgy/review/temp/distill/configs/freeKD.yaml", help='yaml file path')
     parser.add_argument('--run_log', default="./test.log", help='log file path')
     parser.add_argument('--device', default='cuda:0', help='device')
     parser.add_argument('--epoch', default=100, type=int, metavar='N', help='num of epoch')
